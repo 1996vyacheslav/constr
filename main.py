@@ -73,6 +73,13 @@ def construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti):
     return red_grad
 
 
+def construct_reduced_hess(d2Edq2, T_ti):
+    tmp = T_ti.getT() * d2Edq2
+    red_hess = tmp * T_ti
+
+    return red_hess
+
+
 def construct_lambda(drdq, dEdq):
     tmp = drdq.getT() * drdq
     tmp.getI()
@@ -148,6 +155,10 @@ def main():
     red_grad = construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti)
     print("reduced grad")
     print(red_grad)
+
+    red_hess = construct_reduced_hess(d2Edq2, T_ti)
+    print("reduced hess")
+    print(red_hess)
 
 if __name__ == '__main__':
     main()
