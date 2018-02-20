@@ -3,9 +3,11 @@ import numpy as np
 nLambda = 3
 nInter = 4
 
+
 def gram_schmidt_columns(X):
     Q, R = np.linalg.qr(X)
     return Q
+
 
 def construct_T(drdq):
     T = np.matrix(np.zeros((nInter, nInter)))
@@ -21,6 +23,7 @@ def construct_T(drdq):
 
     return T
 
+
 def construct_T_b(T):
     T_b = np.matrix(np.zeros((nLambda, nInter)))
     for i in range(nLambda):
@@ -28,6 +31,7 @@ def construct_T_b(T):
             T_b[i, j] = T[i, j]
     T_b = T_b.getT()
     return T_b
+
 
 def construct_T_ti(T):
     T_ti = np.matrix(np.zeros((nInter - nLambda, nInter)))
@@ -39,6 +43,7 @@ def construct_T_ti(T):
 
     return T_ti
 
+
 def construct_dy(drdq, T_b, r):
     tmp = drdq.getT() * T_b
     tmp = tmp.getI()
@@ -47,14 +52,29 @@ def construct_dy(drdq, T_b, r):
 
     return dy
 
+
 def construct_x(q, T_ti):
     x = T_ti.getT() * q
     return x
+
 
 def construct_dx(dq, T_ti):
     dx = T_ti.getT() * dq
     return dx
 
+
+def construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti):
+    tmp1 = dEdq
+    print(tmp1)
+    tmp2 = d2Edq2 * T_b
+    print(tmp2)
+    tmp3 = tmp2 * dy
+    print(tmp3)
+    tmp1 = -tmp3 + tmp1
+    print(tmp1)
+    red_grad = T_ti.getT() * tmp1
+
+    return red_grad
 
 
 def construct_lambda(drdq, dEdq):
@@ -65,38 +85,51 @@ def construct_lambda(drdq, dEdq):
 
     return rLambda
 
+
 def main():
-#   Установим точку в которой мы стоим (compute energy)
+    #   Установим точку в которой мы стоим (compute energy)
     q = np.array([1, 2, 3, 4])
     q = q.reshape(4, 1)
+    print("q")
+    print(q)
 
-#   Вектор-столбец ограничений
+    dq = np.array([1, 2, 3, 4])
+    dq = q.reshape(4, 1)
+    print("dq")
+    print(dq)
+
+    #   Вектор-столбец ограничений
     r = np.array([1, 2, 3])
     r = r.reshape(3, 1)
     print("r")
     print(r)
 
-
-#   Производная от ограничений
+    #   Производная от ограничений
     drdq = np.matrix('5 3 7; 3 1 4; 7 9 7; 0 2 6')
-
 
     drdq = gram_schmidt_columns(drdq)
     print("drdq")
     print(drdq)
 
-#   Сделано поттому что нужен вектор столбец
+    #   Сделано поттому что нужен вектор столбец
     dEdq = np.array([1, 2, 3, 4])
     dEdq = dEdq.reshape(4, 1)
+    print("dEdq")
+    print(dEdq)
 
+    d2Edq2 = np.matrix('1 2 3 4; 5 6 7 8; 9 10 11 12; 13 14 15 16')
+    print("d2Edq2")
+    print(d2Edq2)
 
     T = construct_T(drdq)
     print("T")
     print(T)
+
     T_b = construct_T_b(T)
-    T_ti = construct_T_ti(T)
     print("T_b")
     print(T_b)
+
+    T_ti = construct_T_ti(T)
     print("T_ti")
     print(T_ti)
 
@@ -111,10 +144,14 @@ def main():
     x = construct_x(q, T_ti)
     print("x")
     print(x)
-#   Здесь должно быть dq
-    dx = construct_dx(q, T_ti)
+
+    dx = construct_dx(dq, T_ti)
     print("dx")
     print(dx)
+
+    red_grad = construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti)
+    print("reduced grad")
+    print(red_grad)
 
 if __name__ == '__main__':
     main()
