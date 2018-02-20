@@ -65,13 +65,9 @@ def construct_dx(dq, T_ti):
 
 def construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti):
     tmp1 = dEdq
-    print(tmp1)
     tmp2 = d2Edq2 * T_b
-    print(tmp2)
     tmp3 = tmp2 * dy
-    print(tmp3)
     tmp1 = -tmp3 + tmp1
-    print(tmp1)
     red_grad = T_ti.getT() * tmp1
 
     return red_grad
