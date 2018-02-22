@@ -63,9 +63,9 @@ def construct_dx(dq, T_ti):
     return dx
 
 
-def construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti):
+def construct_reduced_grad(dEdq, W, dy, T_b, T_ti):
     tmp1 = dEdq
-    tmp2 = d2Edq2 * T_b
+    tmp2 = W * T_b
     tmp3 = tmp2 * dy
     tmp1 = -tmp3 + tmp1
     red_grad = T_ti.getT() * tmp1
@@ -73,8 +73,8 @@ def construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti):
     return red_grad
 
 
-def construct_reduced_hess(d2Edq2, T_ti):
-    tmp = T_ti.getT() * d2Edq2
+def construct_reduced_hess(W, T_ti):
+    tmp = T_ti.getT() * W
     red_hess = tmp * T_ti
 
     return red_hess
@@ -120,9 +120,9 @@ def main():
     print("dEdq")
     print(dEdq)
 
-    d2Edq2 = np.matrix('1 2 3 4; 5 6 7 8; 9 10 11 12; 13 14 15 16')
-    print("d2Edq2")
-    print(d2Edq2)
+    W = np.matrix('1 2 3 4; 5 6 7 8; 9 10 11 12; 13 14 15 16')
+    print("W")
+    print(W)
 
     T = construct_T(drdq)
     print("T")
@@ -152,11 +152,11 @@ def main():
     print("dx")
     print(dx)
 
-    red_grad = construct_reduced_grad(dEdq, d2Edq2, dy, T_b, T_ti)
+    red_grad = construct_reduced_grad(dEdq, W, dy, T_b, T_ti)
     print("reduced grad")
     print(red_grad)
 
-    red_hess = construct_reduced_hess(d2Edq2, T_ti)
+    red_hess = construct_reduced_hess(W, T_ti)
     print("reduced hess")
     print(red_hess)
 
