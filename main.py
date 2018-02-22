@@ -89,6 +89,14 @@ def construct_lambda(drdq, dEdq):
     return rLambda
 
 
+def construct_h(dEdq, lambdas, drdq):
+    h = np.matrix(np.zeros((nInter, nInter)))
+    for i in range(nLambda):
+        h = dEdq - float(lambdas[i][0]) * drdq
+
+    return h
+
+
 def main():
     #   Установим точку в которой мы стоим (compute energy)
     q = np.array([1, 2, 3, 4])
@@ -136,9 +144,9 @@ def main():
     print("T_ti")
     print(T_ti)
 
-    l = construct_lambda(drdq, dEdq)
-    print("lambda")
-    print(l)
+    lambdas = construct_lambda(drdq, dEdq)
+    print("lambdas")
+    print(lambdas)
 
     dy = construct_dy(drdq, T_b, r)
     print("dy")
@@ -159,6 +167,11 @@ def main():
     red_hess = construct_reduced_hess(W, T_ti)
     print("reduced hess")
     print(red_hess)
+
+    h = construct_h(dEdq, lambdas, drdq)
+    print("h")
+    print(h)
+
 
 if __name__ == '__main__':
     main()
