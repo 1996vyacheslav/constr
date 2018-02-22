@@ -89,12 +89,60 @@ def construct_lambda(drdq, dEdq):
     return rLambda
 
 
+def compute_norm(vect_col):
+    norm = 0
+    for i in vect_col:
+        norm += float(i) * float(i);
+    norm = norm ** (0.5)
+
+    return norm
+
+
 def construct_h(dEdq, lambdas, drdq):
     h = np.matrix(np.zeros((nInter, nInter)))
     for i in range(nLambda):
         h = dEdq - float(lambdas[i][0]) * drdq
 
     return h
+
+
+def interation(delta_y, red_grad, delta_x, beta):
+    k_max = 100
+
+    x_beta = 1.0
+    y_beta = 1.0
+    g_beta = 1.0
+
+    step_retsriction = beta * max(y_beta * min(x_beta, g_beta), 1 / 10)
+
+    dy = beta
+    g = beta
+    dx = beta
+
+    norm_deltay = compute_norm(delta_y)
+    norm_deltax = compute_norm(delta_x)
+    norm_red_grad = compute_norm(red_grad)
+
+    for i in range(k_max):
+        if dy < 0.75 * norm_deltay or norm_deltay < 10 ** (-2):
+            y_beta = min(2, y_beta * 2 ** (0.5))
+        elif dy > 1.25 * norm_deltay and dy >= 10 ** (-5):
+            y_beta = max(1 / 10, y_beta / 2 ** 0.5)
+
+        if i != k_max:
+            if dx < norm_deltax and norm_deltax < beta:
+                x_beta = min(1, x_beta * 2 ** (0.5))
+            elif dx > 1.25 * norm_deltax or dx >= beta:
+                x_beta = max(1 / 5, x_beta * 2 ** (0.5))
+                dx = norm_deltax
+
+        if g < 0.75 * norm_red_grad and g < beta:
+            g_beta = min(1, g_beta * 2 ** (0.5))
+        elif g > 1.25 * norm_red_grad or g >= beta:
+            g_beta = max(1 / 5, g_beta * 2 ** (0.5))
+            g = norm_red_grad
+
+    return 1
 
 
 def main():
@@ -172,10 +220,8 @@ def main():
     print("h")
     print(h)
 
-
-#   (почти)Познали github
-#   Познали немного больше
-#   Больше узнали
+    norm = compute_norm(red_grad)
+    print("norm", norm)
 
 if __name__ == '__main__':
     main()
