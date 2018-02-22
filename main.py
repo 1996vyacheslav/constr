@@ -119,27 +119,29 @@ def interation(delta_y, red_grad, delta_x, beta):
     g = beta
     dx = beta
 
+    sf = 2 ** (0.5)
+
     norm_deltay = compute_norm(delta_y)
     norm_deltax = compute_norm(delta_x)
     norm_red_grad = compute_norm(red_grad)
 
     for i in range(k_max):
         if dy < 0.75 * norm_deltay or norm_deltay < 10 ** (-2):
-            y_beta = min(2, y_beta * 2 ** (0.5))
+            y_beta = min(2, y_beta * sf)
         elif dy > 1.25 * norm_deltay and dy >= 10 ** (-5):
-            y_beta = max(1 / 10, y_beta / 2 ** 0.5)
+            y_beta = max(1 / 10, y_beta / sf)
 
         if i != k_max:
-            if dx < norm_deltax and norm_deltax < beta:
-                x_beta = min(1, x_beta * 2 ** (0.5))
+            if dx < norm_deltax < beta:
+                x_beta = min(1, x_beta * sf)
             elif dx > 1.25 * norm_deltax or dx >= beta:
-                x_beta = max(1 / 5, x_beta * 2 ** (0.5))
+                x_beta = max(1 / 5, x_beta * sf)
                 dx = norm_deltax
 
         if g < 0.75 * norm_red_grad and g < beta:
-            g_beta = min(1, g_beta * 2 ** (0.5))
+            g_beta = min(1, g_beta * sf)
         elif g > 1.25 * norm_red_grad or g >= beta:
-            g_beta = max(1 / 5, g_beta * 2 ** (0.5))
+            g_beta = max(1 / 5, g_beta * sf)
             g = norm_red_grad
 
     return 1
