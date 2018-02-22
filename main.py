@@ -173,5 +173,7 @@ def main():
     print(h)
 
 
+#   (почти)Познали github
+
 if __name__ == '__main__':
     main()
