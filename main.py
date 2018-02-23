@@ -1,7 +1,10 @@
 import numpy as np
+import operator
 
 nLambda = 3
 nInter = 4
+
+'''Declaration and set up variables for RFO'''
 
 
 def gram_schmidt_columns(X):
@@ -105,6 +108,32 @@ def construct_h(dEdq, lambdas, drdq):
 
     return h
 
+
+'''****************************************************************************************************************
+*****************************************************Start RFO*****************************************************
+****************************************************************************************************************'''
+
+
+def consrtruct_AH(hess, grad):
+    Z = np.matrix(np.zeros((1, nInter - nLambda)))
+    Hess = np.bmat([[Z.getT(), grad.getT()], [grad, hess]])
+
+    return Hess
+
+
+def get_eigen_vect(AH):
+    eig_val, eig_vec = np.linalg.eig(AH)
+    return eig_val, eig_vec
+
+
+def sort_eigen(eig_val, eig_vec):
+    dict_eig = {eig_val[i]: eig_vec[i] for i in range(nInter - nLambda + 1)}
+    dict_eig = sorted(dict_eig.items(), key=operator.itemgetter(0))
+    return dict_eig
+
+
+def calculate_delat_q(sorted_eig):
+    return 1
 
 def interation(delta_y, red_grad, delta_x, beta):
     k_max = 100
@@ -222,8 +251,17 @@ def main():
     print("h")
     print(h)
 
-    norm = compute_norm(red_grad)
-    print("norm", norm)
+    AH = consrtruct_AH(red_hess, red_grad)
+    print("AH")
+    print(AH)
 
+    eig_val, eig_vec = get_eigen_vect(AH)
+    print("eig_val")
+    print(eig_val)
+    print("eig_vec")
+    print(eig_vec)
+
+    print("sorted_eig")
+    print(sort_eigen(eig_val, eig_vec))
 if __name__ == '__main__':
     main()
