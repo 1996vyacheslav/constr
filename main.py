@@ -101,11 +101,11 @@ def compute_norm(vect_col):
     return norm
 
 
-def construct_h(dEdq, lambdas, drdq):
-    h = np.matrix(np.zeros((nInter, nInter)))
-    for i in range(nLambda):
-        h = dEdq - float(lambdas[i][0]) * drdq
+def construct_h(dEdq, drdq):
+    lambdas = construct_lambda(drdq, dEdq)
+    h = np.matrix(np.zeros((1, nInter)))
 
+    h = dEdq - drdq * lambdas
     return h
 
 
@@ -113,6 +113,19 @@ def construct_h(dEdq, lambdas, drdq):
 *****************************************************Start RFO*****************************************************
 ****************************************************************************************************************'''
 
+
+def bfgs_update_W(prev_W, prev_grad_W, delta_q, dEdq, drdq):
+    s_k = delta_q
+    y_k = construct_h(dEdq, drdq)
+
+    tmp1 = y_k * y_k.getT()
+    tmp2 = y_k.getT() * s_k
+    tmp3 = prev_W * s_k * s_k.getT() * prev_W
+    tmp4 = s_k.getT() * prev_W * s_k
+
+    W = prev_W - tmp3 / tmp4 + tmp1 / tmp2
+
+    return W
 
 def consrtruct_AH(hess, grad):
     Z = np.matrix(np.zeros((1, nInter - nLambda)))
@@ -183,8 +196,14 @@ def main():
     print("q")
     print(q)
 
-    dq = np.array([1, 2, 3, 4])
-    dq = q.reshape(4, 1)
+    dq = np.matrix(np.zeros((1, nInter)))
+    dq = dq.getT()
+
+    for i in range(nInter):
+        dq[i] = 19 + i * 3.4
+
+    #    dq = np.array([1, 2, 3, 4])
+    #    dq = q.reshape(4, 1)
     print("dq")
     print(dq)
 
@@ -193,6 +212,7 @@ def main():
     r = r.reshape(3, 1)
     print("r")
     print(r)
+
 
     #   Производная от ограничений
     drdq = np.matrix('5 3 7; 3 1 4; 7 9 7; 0 2 6')
@@ -247,7 +267,7 @@ def main():
     print("reduced hess")
     print(red_hess)
 
-    h = construct_h(dEdq, lambdas, drdq)
+    h = construct_h(dEdq, drdq)
     print("h")
     print(h)
 
@@ -263,5 +283,9 @@ def main():
 
     print("sorted_eig")
     print(sort_eigen(eig_val, eig_vec))
+
+    print("updated_W")
+    print(bfgs_update_W(W, h, dq, dEdq, drdq))
+
 if __name__ == '__main__':
     main()
