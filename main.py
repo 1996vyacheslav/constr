@@ -116,7 +116,7 @@ def construct_h(dEdq, drdq):
 
 def bfgs_update_W(prev_W, prev_grad_W, delta_q, dEdq, drdq):
     s_k = delta_q
-    y_k = construct_h(dEdq, drdq)
+    y_k = construct_h(dEdq, drdq) - prev_grad_W
 
     tmp1 = y_k * y_k.getT()
     tmp2 = y_k.getT() * s_k
@@ -285,7 +285,7 @@ def main():
     print(sort_eigen(eig_val, eig_vec))
 
     print("updated_W")
-    print(bfgs_update_W(W, h, dq, dEdq, drdq))
+    print(bfgs_update_W(W, h * 2, dq, dEdq, drdq))
 
 if __name__ == '__main__':
     main()
