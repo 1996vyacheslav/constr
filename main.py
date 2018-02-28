@@ -134,8 +134,17 @@ def consrtruct_AH(hess, grad):
     return Hess
 
 
-def get_eigen_vect(AH):
-    eig_val, eig_vec = np.linalg.eig(AH)
+def construct_eq_eig(AH, beta):
+    Z1 = np.matrix(np.zeros((1, nInter - nLambda)))
+    Z2 = np.matrix(np.ones((nInter - nLambda, 1)))
+    S = np.matrix(np.ones((nInter - nLambda, nInter - nLambda)))
+    eq_matrix = np.bmat([[Z2, Z1.getT()], [Z1, beta * S]])
+
+    return eq_matrix
+
+
+def get_eigen_vect(eq_matrix):
+    eig_val, eig_vec = np.linalg.eig(eq_matrix)
     return eig_val, eig_vec
 
 
@@ -145,8 +154,27 @@ def sort_eigen(eig_val, eig_vec):
     return dict_eig
 
 
-def calculate_delat_q(sorted_eig):
-    return 1
+def calculate_delta_q(sorted_eig):
+    delta_q = np.matrix(np.zeros((nInter, 1)))
+    for i in range(nInter - nLambda + 1):
+        l = sorted_eig[i]
+        m = l[1]
+        n = m[0, 0]
+        if n != 0:
+            k = 0
+            while k < nInter:
+                for j in range(i, nInter - nLambda + 1):
+                    tmp = sorted_eig[j]
+                    tmp = tmp[1]
+
+                    for c in range(nInter - nLambda + 1):
+                        delta_q[k, 0] = tmp[0, c]
+                        k = k + 1
+            break
+        else:
+            continue
+
+    return delta_q
 
 def interation(delta_y, red_grad, delta_x, beta):
     k_max = 100
@@ -201,9 +229,6 @@ def main():
 
     for i in range(nInter):
         dq[i] = 19 + i * 3.4
-
-    #    dq = np.array([1, 2, 3, 4])
-    #    dq = q.reshape(4, 1)
     print("dq")
     print(dq)
 
@@ -212,7 +237,6 @@ def main():
     r = r.reshape(3, 1)
     print("r")
     print(r)
-
 
     #   Производная от ограничений
     drdq = np.matrix('5 3 7; 3 1 4; 7 9 7; 0 2 6')
@@ -275,17 +299,27 @@ def main():
     print("AH")
     print(AH)
 
+    W_upt = bfgs_update_W(W, h * 2, dq, dEdq, drdq)
+    print("updated_W")
+    print(W_upt)
+
+    eq_matrix = construct_eq_eig(AH, 5)
+    print("equalation matrix")
+    print(eq_matrix)
+
     eig_val, eig_vec = get_eigen_vect(AH)
     print("eig_val")
     print(eig_val)
     print("eig_vec")
     print(eig_vec)
 
+    sorted_eig_val_vec = sort_eigen(eig_val, eig_vec)
     print("sorted_eig")
-    print(sort_eigen(eig_val, eig_vec))
+    print(sorted_eig_val_vec)
 
-    print("updated_W")
-    print(bfgs_update_W(W, h * 2, dq, dEdq, drdq))
+    delta_q = calculate_delta_q(sorted_eig_val_vec)
+    print("delta_q")
+    print(delta_q)
 
 if __name__ == '__main__':
     main()
