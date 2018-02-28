@@ -6,12 +6,15 @@ nInter = 4
 
 '''Declaration and set up variables for RFO'''
 
-
+'''Gram-Schmidt ortogonalisation
+    returns matrix with orthonormal columns'''
 def gram_schmidt_columns(X):
     Q, R = np.linalg.qr(X)
     return Q
 
 
+'''Make T_matrix to divide space into constrained an non-constrained part
+    returns T_matrix'''
 def construct_T(drdq):
     T = np.matrix(np.zeros((nInter, nInter)))
     drdq = drdq.getT()
@@ -27,6 +30,8 @@ def construct_T(drdq):
     return T
 
 
+"""Divide matrix T with two sub-spaces
+    returns T_b matrix contained constrained part"""
 def construct_T_b(T):
     T_b = np.matrix(np.zeros((nLambda, nInter)))
     for i in range(nLambda):
@@ -36,6 +41,8 @@ def construct_T_b(T):
     return T_b
 
 
+'''Divide matrix T with two sub-spaces
+    returns T_b matrix contained non-constrained part'''
 def construct_T_ti(T):
     T_ti = np.matrix(np.zeros((nInter - nLambda, nInter)))
     for i in range(nInter - nLambda):
@@ -47,6 +54,8 @@ def construct_T_ti(T):
     return T_ti
 
 
+'''Makes a projection into T_b space
+    returns vector-projection'''
 def construct_dy(drdq, T_b, r):
     tmp = drdq.getT() * T_b
     tmp = tmp.getI()
@@ -56,16 +65,23 @@ def construct_dy(drdq, T_b, r):
     return dy
 
 
+'''Makes a projection into T_ti space
+    returns vector-projection'''
 def construct_x(q, T_ti):
     x = T_ti.getT() * q
     return x
 
 
+'''Makes a projection of derivatives into T_ti space
+    returns vector-projection'''
 def construct_dx(dq, T_ti):
     dx = T_ti.getT() * dq
     return dx
 
 
+'''Build gradient Q-fucntion, optimisation of Q-function is a solution of Lagrange
+    problem
+    returns reduced gradient of Q function'''
 def construct_reduced_grad(dEdq, W, dy, T_b, T_ti):
     tmp1 = dEdq
     tmp2 = W * T_b
@@ -76,6 +92,9 @@ def construct_reduced_grad(dEdq, W, dy, T_b, T_ti):
     return red_grad
 
 
+'''Build hessian Q-fucntion, optimisation of Q-function is a solution of Lagrange
+    problem
+    returns reduced hessian of Q function'''
 def construct_reduced_hess(W, T_ti):
     tmp = T_ti.getT() * W
     red_hess = tmp * T_ti
@@ -83,6 +102,8 @@ def construct_reduced_hess(W, T_ti):
     return red_hess
 
 
+'''Build vector of lambdas
+    returns vector of lambdas'''
 def construct_lambda(drdq, dEdq):
     tmp = drdq.getT() * drdq
     tmp.getI()
@@ -92,6 +113,8 @@ def construct_lambda(drdq, dEdq):
     return rLambda
 
 
+'''Calculate normal of vector-column
+    returns float normal'''
 def compute_norm(vect_col):
     norm = 0
     for i in vect_col:
@@ -101,6 +124,8 @@ def compute_norm(vect_col):
     return norm
 
 
+'''Build h-vector (gradient of W)
+    return gradient vector W'''
 def construct_h(dEdq, drdq):
     lambdas = construct_lambda(drdq, dEdq)
     h = np.matrix(np.zeros((1, nInter)))
@@ -113,7 +138,9 @@ def construct_h(dEdq, drdq):
 *****************************************************Start RFO*****************************************************
 ****************************************************************************************************************'''
 
-
+'''BFGS update of W, W - is the part of reduced gradient and hessian
+    we mean B_s in BFGS formula is W
+    returns updated W'''
 def bfgs_update_W(prev_W, prev_grad_W, delta_q, dEdq, drdq):
     s_k = delta_q
     y_k = construct_h(dEdq, drdq) - prev_grad_W
@@ -127,6 +154,9 @@ def bfgs_update_W(prev_W, prev_grad_W, delta_q, dEdq, drdq):
 
     return W
 
+
+'''Build AH matrix ((1, grad_transp), (grad, hessian))
+    return AH matrix'''
 def consrtruct_AH(hess, grad):
     Z = np.matrix(np.zeros((1, nInter - nLambda)))
     Hess = np.bmat([[Z.getT(), grad.getT()], [grad, hess]])
@@ -134,6 +164,9 @@ def consrtruct_AH(hess, grad):
     return Hess
 
 
+'''Build system of equlation to solve eigen problem
+    we choose S-matrix as beta * I, beta - function of internal parameters 
+    return matrix system of equation'''
 def construct_eq_eig(AH, beta):
     Z1 = np.matrix(np.zeros((1, nInter - nLambda)))
     Z2 = np.matrix(np.ones((nInter - nLambda, 1)))
@@ -143,17 +176,25 @@ def construct_eq_eig(AH, beta):
     return eq_matrix
 
 
+'''Solve eigen problem
+    returns eigen vector and eigen values of eq_matrix'''
 def get_eigen_vect(eq_matrix):
     eig_val, eig_vec = np.linalg.eig(eq_matrix)
     return eig_val, eig_vec
 
 
+'''Sorts eigen vectors with respect to their eigen values
+    returns dict of eig. val and vec. key is eig. val.'''
 def sort_eigen(eig_val, eig_vec):
     dict_eig = {eig_val[i]: eig_vec[i] for i in range(nInter - nLambda + 1)}
     dict_eig = sorted(dict_eig.items(), key=operator.itemgetter(0))
     return dict_eig
 
 
+'''Calculate step of RFO for Q fuction
+    we choose minimum lambda (eig. val.) associated with the first 
+    non-zero component of eig. vec.
+    return step in q space'''
 def calculate_delta_q(sorted_eig):
     delta_q = np.matrix(np.zeros((nInter, 1)))
     for i in range(nInter - nLambda + 1):
@@ -177,6 +218,7 @@ def calculate_delta_q(sorted_eig):
     return delta_q
 
 
+'''MAIN RFO LOOP'''
 def iteration(delta_y, red_grad, delta_x, beta):
     k_max = 100
 
@@ -304,7 +346,7 @@ def main():
     print("updated_W")
     print(W_upt)
 
-    eq_matrix = construct_eq_eig(AH, 5)
+    eq_matrix = construct_eq_eig(AH, 1.25)
     print("equalation matrix")
     print(eq_matrix)
 
