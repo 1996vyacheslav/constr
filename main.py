@@ -168,7 +168,7 @@ def calculate_delta_q(sorted_eig):
                     tmp = tmp[1]
 
                     for c in range(nInter - nLambda + 1):
-                        delta_q[k, 0] = tmp[0, c]
+                        delta_q[k, 0] = tmp[0, c] / n
                         k = k + 1
             break
         else:
@@ -176,7 +176,8 @@ def calculate_delta_q(sorted_eig):
 
     return delta_q
 
-def interation(delta_y, red_grad, delta_x, beta):
+
+def iteration(delta_y, red_grad, delta_x, beta):
     k_max = 100
 
     x_beta = 1.0
