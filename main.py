@@ -1,5 +1,9 @@
 import numpy as np
 import operator
+import time as t
+from math import *
+
+start_time = t.time()
 
 nLambda = 3
 nInter = 4
@@ -172,14 +176,16 @@ def construct_eq_eig(AH, beta):
     Z2 = np.matrix(np.ones((nInter - nLambda, 1)))
     S = np.matrix(np.ones((nInter - nLambda, nInter - nLambda)))
     eq_matrix = np.bmat([[Z2, Z1.getT()], [Z1, beta * S]])
+    eq_matrix = eq_matrix.getI() * AH
 
     return eq_matrix
 
 
 '''Solve eigen problem
-    returns eigen vector and eigen values of eq_matrix'''
+    returns eigen vector and eigen values of eq_matrix
+    !!!!!!!!!!!!!!!!ТУТ EIGH ОНА УЖЕ СОРТИРУЕТ'''
 def get_eigen_vect(eq_matrix):
-    eig_val, eig_vec = np.linalg.eig(eq_matrix)
+    eig_val, eig_vec = np.linalg.eigh(eq_matrix)
     return eig_val, eig_vec
 
 
@@ -195,27 +201,13 @@ def sort_eigen(eig_val, eig_vec):
     we choose minimum lambda (eig. val.) associated with the first 
     non-zero component of eig. vec.
     return step in q space'''
-def calculate_delta_q(sorted_eig):
-    delta_q = np.matrix(np.zeros((nInter, 1)))
-    for i in range(nInter - nLambda + 1):
-        l = sorted_eig[i]
-        m = l[1]
-        n = m[0, 0]
-        if n != 0:
-            k = 0
-            while k < nInter:
-                for j in range(i, nInter - nLambda + 1):
-                    tmp = sorted_eig[j]
-                    tmp = tmp[1]
 
-                    for c in range(nInter - nLambda + 1):
-                        delta_q[k, 0] = tmp[0, c] / n
-                        k = k + 1
-            break
-        else:
-            continue
 
-    return delta_q
+def get_rfo_step(grad, hess):
+    M = np.matrix(np.block([[hess, grad], [grad, 0]]))
+    w, v = np.linalg.eigh(M)
+    dx = v[:-1, 0] / v[-1, 0]
+    return dx
 
 
 '''MAIN RFO LOOP'''
@@ -346,7 +338,7 @@ def main():
     print("updated_W")
     print(W_upt)
 
-    eq_matrix = construct_eq_eig(AH, 1.25)
+    eq_matrix = construct_eq_eig(AH, 0.05)
     print("equalation matrix")
     print(eq_matrix)
 
@@ -360,9 +352,11 @@ def main():
     print("sorted_eig")
     print(sorted_eig_val_vec)
 
-    delta_q = calculate_delta_q(sorted_eig_val_vec)
+    delta_q = get_rfo_step(red_grad, red_hess)
     print("delta_q")
     print(delta_q)
+
+    print("time:", (t.time() - start_time))
 
 if __name__ == '__main__':
     main()
