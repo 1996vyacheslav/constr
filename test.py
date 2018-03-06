@@ -195,8 +195,8 @@ def plot(xs, ys, func):
 '''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'''
 func = Func()
 
-q = np.matrix(np.random.randn(2, 1))
-# q = np.matrix([[.001], [.001]])
+# q = np.matrix(np.random.randn(2, 1))
+q = np.matrix([[-0.01], [0.05]])
 
 xs = []
 ys = []
@@ -206,8 +206,7 @@ start_time = t.time()
 x_beta = 1.0
 y_beta = 1.0
 g_beta = 1.0
-beta = 100
-step_rest = 1
+beta = 4
 k_max = 1000
 
 for i in range(k_max):
@@ -229,10 +228,16 @@ for i in range(k_max):
     grad = construct_reduced_grad(dEdq, W, delta_y, T_b, T_ti)
     hess = construct_reduced_hess(W, T_ti)
 
-    delta_x = get_rfo_step(grad, hess, step_rest)
+    if abs(float(grad)) < 10 ** (-5):
+        print("True")
+        break
 
     step_rest = beta * max(y_beta * min(x_beta, g_beta), 1 / 10)
-    print('{} step_rest = {}, y_beta = {}, x_beta = {}, g_beta = {}'.format(i, step_rest, x_beta, y_beta, g_beta))
+    #    step_rest = max(beta * y_beta * min(x_beta, g_beta), beta * 1 / 10)
+
+    delta_x = get_rfo_step(grad, hess, step_rest)
+
+    print('{} step_rest = {}, grad = {}, hess = {}'.format(i, step_rest, grad, hess))
     dy = beta
     g = beta
     dx = beta
