@@ -154,7 +154,7 @@ def bfgs_update_W(prev_W, prev_grad_W, delta_q, dEdq, drdq):
     tmp3 = prev_W * s_k * s_k.getT() * prev_W
     tmp4 = s_k.getT() * prev_W * s_k
 
-    W = prev_W - tmp3 / tmp4 + tmp1 / tmp2
+    W = prev_W + tmp3 / tmp4 - tmp1 / tmp2
 
     return W
 

@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time as t
 
+
 nLambda = 1
 nInter = 2
 
@@ -46,11 +47,11 @@ def gram_schmidt_columns(X):
 
 
 def get_rfo_step(grad, hess, beta):
-    M = np.matrix(np.block([[hess, grad], [grad, 0]]))
+    M = np.matrix(np.block([[hess, grad], [grad.getT(), 0]]))
 
     Z1 = np.matrix(np.zeros((1, nInter - nLambda)))
-    Z2 = np.matrix(np.ones((nInter - nLambda, 1)))
-    S = np.matrix(np.ones((nInter - nLambda, nInter - nLambda)))
+    Z2 = np.matrix(np.ones((1, 1)))
+    S = np.matrix(np.eye(nInter - nLambda, nInter - nLambda))
     S = np.bmat([[Z2, Z1.getT()], [Z1, beta * S]])
     M = S.getI() * M
 
@@ -193,85 +194,118 @@ def plot(xs, ys, func):
 
 
 '''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'''
-func = Func()
+time_list = []
+step_list = []
 
-# q = np.matrix(np.random.randn(2, 1))
-q = np.matrix([[-0.01], [0.05]])
 
-xs = []
-ys = []
+def rfo(use_beta, beta):
+    func = Func()
 
-start_time = t.time()
+    q = np.matrix(np.random.randn(2, 1))
+    # q = np.matrix([[-1], [-0.00001]])
 
-x_beta = 1.0
-y_beta = 1.0
-g_beta = 1.0
-beta = 4
-k_max = 1000
+    xs = []
+    ys = []
 
-for i in range(k_max):
-    xs.append(q[0, 0])
-    ys.append(q[1, 0])
+    start_time = t.time()
 
-    #    print('x = {}, y = {}'.format(q[0, 0], q[1, 0]))
-    dEdq = func.grad(q)
-    drdq = get_drdq(q)
+    x_beta = 1.0
+    y_beta = 1.0
+    g_beta = 1.0
+    k_max = 100000
 
-    l0 = construct_lambda(drdq, dEdq)
-    W = func.hess(q) + l0[0, 0] * 2 * np.identity(2)
+    for i in range(k_max):
+        xs.append(q[0, 0])
+        ys.append(q[1, 0])
 
-    T = construct_T(drdq)
-    T_b = construct_T_b(T)
-    T_ti = construct_T_ti(T)
-    delta_y = construct_dy(drdq, T_b, r(q))
+        #    print('x = {}, y = {}'.format(q[0, 0], q[1, 0]))
+        dEdq = func.grad(q)
+        drdq = get_drdq(q)
 
-    grad = construct_reduced_grad(dEdq, W, delta_y, T_b, T_ti)
-    hess = construct_reduced_hess(W, T_ti)
+        l0 = construct_lambda(drdq, dEdq)
+        W = func.hess(q) + l0[0, 0] * 2 * np.identity(2)
 
-    if abs(float(grad)) < 10 ** (-5):
-        print("True")
-        break
+        T = construct_T(drdq)
+        T_b = construct_T_b(T)
+        T_ti = construct_T_ti(T)
+        delta_y = construct_dy(drdq, T_b, r(q))
 
-    step_rest = beta * max(y_beta * min(x_beta, g_beta), 1 / 10)
-    #    step_rest = max(beta * y_beta * min(x_beta, g_beta), beta * 1 / 10)
+        grad = construct_reduced_grad(dEdq, W, delta_y, T_b, T_ti)
+        hess = construct_reduced_hess(W, T_ti)
 
-    delta_x = get_rfo_step(grad, hess, step_rest)
+        if abs(float(grad)) < 10 ** (-12):
+            #            print("Stop at", i)
+            step_list.append(i)
+            break
 
-    print('{} step_rest = {}, grad = {}, hess = {}'.format(i, step_rest, grad, hess))
-    dy = beta
-    g = beta
-    dx = beta
+        step_rest = beta * max(y_beta * min(x_beta, g_beta), 1 / 10)
 
-    sf = 2 ** (0.5)
+        if use_beta == True:
+            delta_x = get_rfo_step(grad, hess, 1 / step_rest)
+        else:
+            delta_x = get_rfo_step(grad, hess, 1)
 
-    norm_deltay = compute_norm(delta_y)
-    norm_deltax = compute_norm(delta_x)
-    norm_red_grad = compute_norm(grad)
+        #        print('{} step_rest = {}, grad = {}, hess = {}'.format(i, step_rest, grad, hess))
 
-    if dy < 0.75 * norm_deltay or norm_deltay < 10 ** (-2):
-        y_beta = min(2, y_beta * sf)
-    elif dy > 1.25 * norm_deltay and dy >= 10 ** (-5):
-        y_beta = max(1 / 10, y_beta / sf)
-        dy = norm_deltay
+        dy = beta
+        g = beta
+        dx = beta
 
-    if i != k_max:
-        if dx < norm_deltax < beta:
-            x_beta = min(1, x_beta * sf)
-        elif dx > 1.25 * norm_deltax or dx >= beta:
-            x_beta = max(1 / 5, x_beta / sf)
-            dx = norm_deltax
+        sf = 2 ** (0.5)
 
-    if g < 0.75 * norm_red_grad and g < beta:
-        g_beta = min(1, g_beta * sf)
-    elif g > 1.25 * norm_red_grad or g >= beta:
-        g_beta = max(1 / 5, g_beta / sf)
-        g = norm_red_grad
+        norm_deltay = compute_norm(delta_y)
+        norm_deltax = compute_norm(delta_x)
+        norm_red_grad = compute_norm(grad)
 
-    dq = T_b * delta_y + T_ti * delta_x
-    q += dq
+        if dy < 0.75 * norm_deltay or norm_deltay < 10 ** (-2):
+            y_beta = min(2, y_beta * sf)
+        elif dy > 1.25 * norm_deltay and dy >= 10 ** (-5):
+            y_beta = max(1 / 10, y_beta / sf)
+            dy = norm_deltay
 
-    print('x = {}, y ={}'.format(q[0, 0], q[1, 0]))
+        if i != k_max:
+            if dx < norm_deltax < beta:
+                x_beta = min(1, x_beta * sf)
+            elif dx > 1.25 * norm_deltax or dx >= beta:
+                x_beta = max(1 / 5, x_beta / sf)
+                dx = norm_deltax
 
-print("time:", (t.time() - start_time))
-plot(xs, ys, func)
-plt.show(block=True)
+        if g < 0.75 * norm_red_grad and g < beta:
+            g_beta = min(1, g_beta * sf)
+        elif g > 1.25 * norm_red_grad or g >= beta:
+            g_beta = max(1 / 5, g_beta / sf)
+            g = norm_red_grad
+
+        dq = T_b * delta_y + T_ti * delta_x
+        q += dq
+
+    #        print('x = {}, y ={}'.format(q[0, 0], q[1, 0]))
+
+    t_end = t.time() - start_time
+    time_list.append(t_end)
+
+
+#    print("time:", t_end)
+#    plot(xs, ys, func)
+#    plt.show(block=True)
+
+
+for i in range(1000):
+    rfo(True, beta=4)
+    print(i + 1)
+
+sum = .0
+for i in range(len(step_list)):
+    sum = sum + step_list[i]
+print("Average step: ", sum / len(step_list))
+
+step_list.sort()
+
+print("Median step: ", step_list[500])
+
+sum = .0
+for i in range(len(time_list)):
+    sum = sum + time_list[i]
+print("Average time:", sum / len(time_list))
+
+print(step_list)
