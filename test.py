@@ -291,7 +291,7 @@ def rfo(use_beta, beta):
 
 
 for i in range(1000):
-    rfo(True, beta=4)
+    rfo(False, beta=4)
     print(i + 1)
 
 sum = .0
