@@ -33,6 +33,27 @@ class Func:
         return np.matrix([[xx, xy], [xy, yy]])
 
 
+class Func3:
+    def __init__(self):
+        self.inner = Func()
+
+    def __call__(self, x):
+        return self.inner(x[:2]) + self.inner(x[1:])
+
+    def grad(self, x):
+        grad = np.matrix(np.zeros((3, 1)))
+        grad[:2, 0] = self.inner.grad(x[:2])
+        grad[1:, 0] = self.inner.grad(x[1:])
+
+        return grad
+
+    def hess(self, x):
+        hess = np.matrix(np.zeros((3, 3)))
+        hess[:2, :2] = self.inner.hess(x[:2])
+        hess[1:, 1:] = self.inner.hess(x[1:])
+
+        return hess
+
 def r(x):
     return np.linalg.norm(x) - .3
 
@@ -156,9 +177,9 @@ def construct_h(dEdq, drdq):
     return h
 
 
-def bfgs_update_W(prev_W, prev_grad_W, delta_q, dEdq, drdq):
+def bfgs_update_W(prev_W, next_grad_W, prev_grad_W, delta_q, dEdq, drdq):
     s_k = delta_q
-    y_k = construct_h(dEdq, drdq) - prev_grad_W
+    y_k = next_grad_W - prev_grad_W
 
     tmp1 = y_k * y_k.getT()
     tmp2 = y_k.getT() * s_k
@@ -201,8 +222,12 @@ step_list = []
 def rfo(use_beta, beta):
     func = Func()
 
-    q = np.matrix(np.random.randn(2, 1))
-    # q = np.matrix([[-1], [-0.00001]])
+    # q = np.matrix(np.random.randn(2, 1))
+    q_next = np.matrix([[-.001], [-.001]])
+    q_start = np.matrix([[-.001], [-.001]])
+
+    constr_value = []
+    sphere_grad_value = []
 
     xs = []
     ys = []
@@ -215,26 +240,43 @@ def rfo(use_beta, beta):
     k_max = 100000
 
     for i in range(k_max):
-        xs.append(q[0, 0])
-        ys.append(q[1, 0])
+        xs.append(q_next[0, 0])
+        ys.append(q_next[1, 0])
 
         #    print('x = {}, y = {}'.format(q[0, 0], q[1, 0]))
-        dEdq = func.grad(q)
-        drdq = get_drdq(q)
+        dEdq = func.grad(q_next)
+        drdq = get_drdq(q_next)
 
-        l0 = construct_lambda(drdq, dEdq)
-        W = func.hess(q) + l0[0, 0] * 2 * np.identity(2)
+        if i == 0:
+            l0 = construct_lambda(drdq, dEdq)
+            W = func.hess(q_start) + l0[0, 0] * 2 * np.identity(2)
+            h_prev = construct_h(dEdq, drdq)
+            q_prev = q_start
+        else:
+            h_next = construct_h(dEdq, drdq)
+            print("h_prev")
+            print(h_prev)
+            print("h_next")
+            print(h_next)
+            print("q_prev")
+            print(q_prev)
+            print("q_next")
+            print(q_next)
+            W = bfgs_update_W(W, h_next, h_prev, q_next - q_prev, dEdq, drdq)
+            print("W")
+            print(W)
+            h_prev, q_prev = h_next, q_next
 
         T = construct_T(drdq)
         T_b = construct_T_b(T)
         T_ti = construct_T_ti(T)
-        delta_y = construct_dy(drdq, T_b, r(q))
+        delta_y = construct_dy(drdq, T_b, r(q_next))
 
         grad = construct_reduced_grad(dEdq, W, delta_y, T_b, T_ti)
         hess = construct_reduced_hess(W, T_ti)
 
         if abs(float(grad)) < 10 ** (-12):
-            #            print("Stop at", i)
+            print("Stop at", i)
             step_list.append(i)
             break
 
@@ -244,6 +286,8 @@ def rfo(use_beta, beta):
             delta_x = get_rfo_step(grad, hess, 1 / step_rest)
         else:
             delta_x = get_rfo_step(grad, hess, 1)
+
+        print('dx = {}, dy = {}'.format(delta_x, delta_y))
 
         #        print('{} step_rest = {}, grad = {}, hess = {}'.format(i, step_rest, grad, hess))
 
@@ -277,35 +321,69 @@ def rfo(use_beta, beta):
             g = norm_red_grad
 
         dq = T_b * delta_y + T_ti * delta_x
-        q += dq
+        q_next += dq
 
-    #        print('x = {}, y ={}'.format(q[0, 0], q[1, 0]))
+    print('x = {}, y ={}'.format(q_next[0, 0], q_next[1, 0]))
 
     t_end = t.time() - start_time
     time_list.append(t_end)
 
-
-#    print("time:", t_end)
-#    plot(xs, ys, func)
-#    plt.show(block=True)
+    plot(xs, ys, func)
+    plt.show()
 
 
-for i in range(1000):
-    rfo(False, beta=4)
-    print(i + 1)
+rfo(False, beta=0)
 
-sum = .0
-for i in range(len(step_list)):
-    sum = sum + step_list[i]
-print("Average step: ", sum / len(step_list))
+"""
+H = np.array([[-10., -.1], [.3, -10]])
+print(H)
 
-step_list.sort()
+def f(x):
+    return .5 * x.T.dot(H).dot(x)
 
-print("Median step: ", step_list[500])
 
-sum = .0
-for i in range(len(time_list)):
-    sum = sum + time_list[i]
-print("Average time:", sum / len(time_list))
+def grad(x):
+    return H.dot(x)
 
-print(step_list)
+
+def hess(x):
+    return H
+
+
+def BFGS(B, s, y):
+    return B + np.outer(y, y) / y.dot(s) - np.outer(B.dot(s), B.dot(s).T) / s.dot(B).dot(s)
+
+
+q = np.random.randn(2)
+q_prev = q
+grad_prev = grad(q)
+B = np.array([[-10, 0], [0, -10]])  # hess(q_prev)
+
+N = 20
+M = 200
+
+xs = []
+ys = []
+norms = []
+
+for i in np.linspace(0, N * pi, M):
+    q_next = q.dot(np.array([[sin(i), cos(i)], [-cos(i), sin(i)]])) * (1 - i / (N * pi))
+    grad_next = grad(q_next)
+
+    B = BFGS(B, q_next - q_prev, grad_next - grad_prev)
+
+    xs.append(q_next[0])
+    ys.append(q_next[1])
+    norms.append(np.linalg.norm(hess(q_next) - B))
+
+    q_prev, grad_prev = q_next, grad_next
+
+    if i > 150:
+        break
+print(B)
+
+plt.plot(xs, ys)
+plt.show()
+plt.plot(norms)
+plt.show()
+"""
