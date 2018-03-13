@@ -170,7 +170,13 @@ def compute_norm(vect_col):
 
 
 def construct_h(dEdq, drdq):
+    print("drdq")
+    print(drdq)
+    print("dEdq")
+    print(dEdq)
     lambdas = construct_lambda(drdq, dEdq)
+    print("lambdas")
+    print(lambdas)
     h = np.matrix(np.zeros((1, nInter)))
 
     h = dEdq - drdq * lambdas
@@ -237,7 +243,7 @@ def rfo(use_beta, beta):
     x_beta = 1.0
     y_beta = 1.0
     g_beta = 1.0
-    k_max = 100000
+    k_max = 10000
 
     for i in range(k_max):
         xs.append(q_next[0, 0])
@@ -262,12 +268,15 @@ def rfo(use_beta, beta):
             print(q_prev)
             print("q_next")
             print(q_next)
-            W = bfgs_update_W(W, h_next, h_prev, q_next - q_prev, dEdq, drdq)
+            # W = bfgs_update_W(W, h_next, h_prev, q_next - q_prev, dEdq, drdq)
+            W = func.hess(q_next) + l0[0, 0] * 2 * np.identity(2)
             print("W")
             print(W)
             h_prev, q_prev = h_next, q_next
 
         T = construct_T(drdq)
+        print("T")
+        print(T)
         T_b = construct_T_b(T)
         T_ti = construct_T_ti(T)
         delta_y = construct_dy(drdq, T_b, r(q_next))
@@ -332,7 +341,6 @@ def rfo(use_beta, beta):
     plt.show()
 
 
-rfo(False, beta=0)
 
 """
 H = np.array([[-10., -.1], [.3, -10]])
@@ -387,3 +395,82 @@ plt.show()
 plt.plot(norms)
 plt.show()
 """
+
+
+def alg(beta):
+    func = Func()
+    q = np.matrix([[-.001], [-.001]])
+
+    xs = []
+    ys = []
+
+    x_beta = 1.0
+    y_beta = 1.0
+    g_beta = 1.0
+
+    k_max = 10000
+
+    for i in range(k_max):
+        xs.append(q[0, 0])
+        ys.append(q[1, 0])
+
+        dEdq = func.grad(q)
+        drdq = get_drdq(q)
+
+        for j in range(i + 1):
+            l0 = construct_lambda(drdq, dEdq)
+            W = func.hess(q) + l0[0, 0] * 2 * np.identity(2)
+            T = construct_T(drdq)
+            T_b = construct_T_b(T)
+            T_ti = construct_T_ti(T)
+            delta_y = construct_dy(drdq, T_b, r(q))
+
+            grad = construct_reduced_grad(dEdq, W, delta_y, T_b, T_ti)
+            delta_x = construct_dx(func.grad(q), T_ti)
+
+            dy = beta
+            g = beta
+            dx = beta
+
+            sf = 2 ** (0.5)
+
+            norm_deltay = compute_norm(delta_y)
+            norm_deltax = compute_norm(delta_x)
+            norm_red_grad = compute_norm(grad)
+
+            if dy < 0.75 * norm_deltay or norm_deltay < 10 ** (-2):
+                y_beta = min(2, y_beta * sf)
+            elif dy > 1.25 * norm_deltay and dy >= 10 ** (-5):
+                y_beta = max(1 / 10, y_beta / sf)
+                dy = norm_deltay
+
+            if j != i:
+                if dx < norm_deltax < beta:
+                    x_beta = min(1, x_beta * sf)
+                elif dx > 1.25 * norm_deltax or dx >= beta:
+                    x_beta = max(1 / 5, x_beta / sf)
+                    dx = norm_deltax
+
+            if g < 0.75 * norm_red_grad and g < beta:
+                g_beta = min(1, g_beta * sf)
+            elif g > 1.25 * norm_red_grad or g >= beta:
+                g_beta = max(1 / 5, g_beta / sf)
+                g = norm_red_grad
+
+        hess = construct_reduced_hess(W, T_ti)
+        step_rest = beta * max(y_beta * min(x_beta, g_beta), 1 / 10)
+        delta_x = get_rfo_step(grad, hess, 1 / step_rest)
+        dq = T_b * delta_y + T_ti * delta_x
+        q += dq
+
+        if abs(float(grad)) < 10 ** (-12):
+            print("Step: ", i)
+            break
+        else:
+            print(i)
+
+    plot(xs, ys, func)
+    plt.show()
+
+
+alg(3)
