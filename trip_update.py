@@ -212,6 +212,8 @@ def plot(xs, ys, func):
 
 
 def alg_trip(trust_radius, use_beta, beta=0):
+    list_W_min_W_upt = []
+
     # Check start time
     start_time = t.time()
 
@@ -241,7 +243,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
     g_beta = 1.0
 
     # Maximum count of the steps
-    k_max = 200
+    k_max = 100
 
     # Get energy hessian at start point
     d2Edq2 = E.hess(q_start)
@@ -271,6 +273,10 @@ def alg_trip(trust_radius, use_beta, beta=0):
                               construct_h(dEdq_history[j], drdq_history[j], lam),
                               step_history[j + 1] - step_history[j])
 
+        # DEBUG
+        W_rel = E.hess(step_history[i]) + lam[0, 0] * 2 * np.identity(2)
+        print(W_rel - W)
+
         # Dividing into to subspaces
         T = construct_T(drdq)
         T_b = construct_T_b(T)
@@ -280,8 +286,10 @@ def alg_trip(trust_radius, use_beta, beta=0):
         delta_y = construct_dy(drdq, T_b, r(step_history[i]))
 
         # Cut the step in case of big step because of bad derivatives
-        if compute_norm(delta_y) > trust_radius:
-            delta_y = trust_radius
+        norm_deltay = compute_norm(delta_y)
+        if norm_deltay > trust_radius:
+            delta_y = delta_y / norm_deltay
+            delta_y = delta_y * trust_radius
 
         # Reduced gradient and reduced hessian of the main optimisation Q-function
         grad = construct_reduced_grad(dEdq, W, delta_y, T_b, T_ti)
@@ -298,7 +306,6 @@ def alg_trip(trust_radius, use_beta, beta=0):
 
             sf = 2 ** (0.5)
 
-            norm_deltay = compute_norm(delta_y)
             norm_deltax = compute_norm(delta_x)
             norm_red_grad = compute_norm(grad)
 
@@ -324,8 +331,10 @@ def alg_trip(trust_radius, use_beta, beta=0):
             delta_x = get_rfo_step(grad, hess, 1)
 
         # Cut the step in case of big step because of bad derivatives
-        if compute_norm(delta_x) > trust_radius:
-            delta_x = trust_radius
+        norm_deltax = compute_norm(delta_x)
+        if norm_deltax > trust_radius:
+            delta_x = delta_x / norm_deltax
+            delta_x = delta_x * trust_radius
 
         # Calculate step from rfo optimisation
         step = T_b * delta_y + T_ti * delta_x
@@ -345,4 +354,4 @@ def alg_trip(trust_radius, use_beta, beta=0):
     plt.show()
 
 
-alg_trip(1, False)
+alg_trip(0.3, True, 4)
