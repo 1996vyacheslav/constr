@@ -1,4 +1,5 @@
 from math import *
+import os
 import numpy as np
 from matplotlib import pyplot as plt
 import time as t
@@ -183,7 +184,7 @@ def bfgs_update_W(prev_W, delta_grad, delta_q):
     tmp3 = prev_W * s_k * s_k.getT() * prev_W
     tmp4 = s_k.getT() * prev_W * s_k
 
-    W = prev_W + tmp3 / tmp4 - tmp1 / tmp2
+    W = prev_W - tmp3 / tmp4 + tmp1 / tmp2
 
     return W
 
@@ -211,9 +212,10 @@ def plot(xs, ys, func):
     plt.plot(xs, ys, c='r')
 
 
+list_steps = []
+list_times = []
+list_conv = []
 def alg_trip(trust_radius, use_beta, beta=0):
-    list_W_min_W_upt = []
-
     # Check start time
     start_time = t.time()
 
@@ -228,7 +230,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
     drdq_history = []
 
     # Start point
-    q_start = np.matrix([[1.], [1.]])
+    q_start = np.matrix(np.random.randn(2, 1))
 
     # Add start point to the history
     step_history.append(q_start)
@@ -243,7 +245,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
     g_beta = 1.0
 
     # Maximum count of the steps
-    k_max = 100
+    k_max = 1000
 
     # Get energy hessian at start point
     d2Edq2 = E.hess(q_start)
@@ -252,6 +254,17 @@ def alg_trip(trust_radius, use_beta, beta=0):
     for i in range(k_max):
         xs.append(step_history[i][0, 0])
         ys.append(step_history[i][1, 0])
+
+        plot(xs, ys, E)
+        if not os.path.exists("D:\\constr\\pic\\pic_path\\path" + str(len(list_steps))):
+            os.makedirs("D:\\constr\\pic\\pic_path\\path" + str(len(list_steps)))
+
+        plt.savefig("D:\\constr\\pic\\pic_path\\path" + str(len(list_steps)) + "\\" + "step" + str(i) + ".jpg",
+                    format='pdf', dpi=100)
+        plt.clf()
+        plt.close()
+
+
 
         # Compute gradients of energy and constrains
         dEdq = E.grad(step_history[i])
@@ -273,9 +286,6 @@ def alg_trip(trust_radius, use_beta, beta=0):
                               construct_h(dEdq_history[j], drdq_history[j], lam),
                               step_history[j + 1] - step_history[j])
 
-        # DEBUG
-        W_rel = E.hess(step_history[i]) + lam[0, 0] * 2 * np.identity(2)
-        print(W_rel - W)
 
         # Dividing into to subspaces
         T = construct_T(drdq)
@@ -285,20 +295,17 @@ def alg_trip(trust_radius, use_beta, beta=0):
         # Calculate step in T_b subspace
         delta_y = construct_dy(drdq, T_b, r(step_history[i]))
 
-        # Cut the step in case of big step because of bad derivatives
         norm_deltay = compute_norm(delta_y)
-        if norm_deltay > trust_radius:
-            delta_y = delta_y / norm_deltay
-            delta_y = delta_y * trust_radius
 
         # Reduced gradient and reduced hessian of the main optimisation Q-function
         grad = construct_reduced_grad(dEdq, W, delta_y, T_b, T_ti)
+        norm_red_grad = compute_norm(grad)
         hess = construct_reduced_hess(W, T_ti)
 
         # Beta feedback mechanism switch
         if use_beta:
             step_rest = beta * max(y_beta * min(x_beta, g_beta), 1 / 10)
-            delta_x = get_rfo_step(grad, hess, step_rest)
+            delta_x = get_rfo_step(grad, hess, 1 / step_rest)
 
             dy = beta
             g = beta
@@ -307,7 +314,6 @@ def alg_trip(trust_radius, use_beta, beta=0):
             sf = 2 ** (0.5)
 
             norm_deltax = compute_norm(delta_x)
-            norm_red_grad = compute_norm(grad)
 
             if dy < 0.75 * norm_deltay or norm_deltay < 10 ** (-2):
                 y_beta = min(2, y_beta * sf)
@@ -327,14 +333,30 @@ def alg_trip(trust_radius, use_beta, beta=0):
             elif g > 1.25 * norm_red_grad or g >= beta:
                 g_beta = max(1 / 5, g_beta / sf)
                 g = norm_red_grad
+
+            # Cut the step in case of big step because of bad derivatives
+            if norm_deltax > step_rest:
+                delta_x = delta_x / norm_deltax
+                delta_x = delta_x * step_rest
+
+            # Cut the step in case of big step because of bad derivatives
+            if norm_deltay > step_rest:
+                delta_y = delta_y / norm_deltay
+                delta_y = delta_y * step_rest
+
         else:
             delta_x = get_rfo_step(grad, hess, 1)
 
-        # Cut the step in case of big step because of bad derivatives
-        norm_deltax = compute_norm(delta_x)
-        if norm_deltax > trust_radius:
-            delta_x = delta_x / norm_deltax
-            delta_x = delta_x * trust_radius
+            # Cut the step in case of big step because of bad derivatives
+            norm_deltax = compute_norm(delta_x)
+            if norm_deltax > trust_radius:
+                delta_x = delta_x / norm_deltax
+                delta_x = delta_x * trust_radius
+
+            # Cut the step in case of big step because of bad derivatives
+            if norm_deltay > trust_radius:
+                delta_y = delta_y / norm_deltay
+                delta_y = delta_y * trust_radius
 
         # Calculate step from rfo optimisation
         step = T_b * delta_y + T_ti * delta_x
@@ -343,15 +365,39 @@ def alg_trip(trust_radius, use_beta, beta=0):
         # Add new point to history of points
         step_history.append(new_point)
 
+        if norm_red_grad < 10 ** (-6):
+            list_steps.append(i)
+            list_conv.append(1)
+            break
+
     # Check execution time
     t_end = t.time() - start_time
-    print("Time", t_end)
+    list_times.append(t_end)
 
-    for stp in step_history:
-        print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
+    # for stp in step_history:)
+    #     print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
 
     plot(xs, ys, E)
-    plt.show()
+    plt.savefig("D:\\constr\\pic\\" + str(len(list_steps)) + ".jpg", format='png', dpi=100)
+    plt.clf()
+    plt.close()
 
 
-alg_trip(0.3, True, 4)
+for i in range(50):
+    alg_trip(1, True, 1.5)
+    print("Done,", i)
+
+sum = 0
+for i in range(len(list_steps)):
+    sum = sum + list_steps[i]
+print('AVERAGE STEP = {}, MEDIAN STEP  = {}'.format(sum / len(list_steps), list_steps[int(len(list_steps) / 2)]))
+
+sum = 0
+for i in range(len(list_times)):
+    sum = sum + list_times[i]
+print('AVERAGE TIME = {}, MEDIAN TIME = {}'.format(sum / len(list_times), list_times[int(len(list_times) / 2)]))
+
+sum = 0
+for i in range(len(list_conv)):
+    sum = sum + list_conv[i]
+print('COUNT OF CONV = {}'.format(sum))
