@@ -56,11 +56,14 @@ class Func3:
 
 
 def r(x):
-    return np.linalg.norm(x) - .3
-
+    x, y = x
+    return x**2 / 0.04 + y**2 / 0.09 - 1
 
 def get_drdq(x):
-    return 2 * x
+    x, y = x[0, 0], x[1, 0]
+    x = 2. * x / .3
+    y = 2. * y / .2
+    return np.matrix([[x], [y]])
 
 
 def gram_schmidt_columns(X):
@@ -167,7 +170,7 @@ def compute_norm(vect_col):
         norm += float(i) * float(i)
     norm = norm ** (0.5)
 
-    return norm
+    return np.linalg.norm(vect_col)
 
 
 def construct_h(dEdq, drdq, lambdas):
@@ -192,8 +195,8 @@ def bfgs_update_W(prev_W, delta_grad, delta_q):
 def plot(xs, ys, func):
     plt.figure(figsize=(10, 10))
 
-    x = np.linspace(-1.5, 1.5, 100)
-    y = np.linspace(-1, 2, 100)
+    x = np.linspace(-2, 2, 100)
+    y = np.linspace(-2, 2, 100)
     x_grid, y_grid = np.meshgrid(x, y)
 
     z_E = np.zeros_like(x_grid)
@@ -231,7 +234,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
 
     # Start point
     #q_start = np.matrix(np.random.randn(2, 1))
-    q_start = np.matrix([[0.3], [0.0]])
+    q_start = np.matrix([[-1.], [-1.]])
 
     # Add start point to the history
     step_history.append(q_start)
@@ -246,7 +249,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
     g_beta = 1.0
 
     # Maximum count of the steps
-    k_max = 1000
+    k_max = 2000
 
     # Get energy hessian at start point
     d2Edq2 = E.hess(q_start)
@@ -256,14 +259,14 @@ def alg_trip(trust_radius, use_beta, beta=0):
         xs.append(step_history[i][0, 0])
         ys.append(step_history[i][1, 0])
 
-        plot(xs, ys, E)
-        if not os.path.exists("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1)):
-            os.makedirs("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1))
-
-        plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1) + "/" + "step" + str(i) + ".png",
-                    format='png', dpi=100)
-        plt.clf()
-        plt.close()
+        # plot(xs, ys, E)
+        # if not os.path.exists("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1)):
+        #     os.makedirs("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1))
+        #
+        # plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1) + "/" + "step" + str(i) + ".png",
+        #             format='png', dpi=100)
+        # plt.clf()
+        # plt.close()
 
 
 
@@ -366,19 +369,23 @@ def alg_trip(trust_radius, use_beta, beta=0):
         # Add new point to history of points
         step_history.append(new_point)
 
-        print(norm_red_grad, "kdajskakjsd")
-
-        if norm_red_grad < 10 ** (-4):
+        if norm_red_grad < 10 ** (-10):
             list_steps.append(i)
             list_conv.append(1)
             break
+        else:
+            print(i)
+        # if len(step_history) > 20:
+        #     list_steps.append(i)
+        #     list_conv.append(1)
+        #     break
 
     # Check execution time
     t_end = t.time() - start_time
     list_times.append(t_end)
 
-    # for stp in step_history:)
-    #     print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
+    for stp in step_history:
+        print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
 
     plot(xs, ys, E)
     plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/" + str(len(list_steps)) + ".png", format='png', dpi=100)
@@ -387,7 +394,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
 
 
 for i in range(1):
-    alg_trip(1, True, 1.5)
+    alg_trip(1, True, 0.01)
     print("Done,", i)
 
 sum = 0
@@ -404,3 +411,22 @@ sum = 0
 for i in range(len(list_conv)):
     sum = sum + list_conv[i]
 print('COUNT OF CONV = {}'.format(sum))
+
+# x = -0.1471188751403783
+# y = -0.3366564852235889
+# q_start = np.matrix([[-0.1471188751403783], [-0.3366564852235889]])
+# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
+# print("E1", E)
+#
+# E = Func()
+# print("GRAD:", np.linalg.norm(E.grad(q_start)))
+#
+# x = -0.09874143187854383
+# y = -0.3334975027205661
+# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
+# q_start = np.matrix([[-0.09874143187854383], [-0.3334975027205661]])
+# print("E2", E)
+#
+# E = Func()
+# print("GRAD:", np.linalg.norm(E.grad(q_start)))
+
