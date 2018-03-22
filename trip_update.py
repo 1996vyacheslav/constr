@@ -230,7 +230,8 @@ def alg_trip(trust_radius, use_beta, beta=0):
     drdq_history = []
 
     # Start point
-    q_start = np.matrix(np.random.randn(2, 1))
+    #q_start = np.matrix(np.random.randn(2, 1))
+    q_start = np.matrix([[0.3], [0.0]])
 
     # Add start point to the history
     step_history.append(q_start)
@@ -256,11 +257,11 @@ def alg_trip(trust_radius, use_beta, beta=0):
         ys.append(step_history[i][1, 0])
 
         plot(xs, ys, E)
-        if not os.path.exists("D:\\constr\\pic\\pic_path\\path" + str(len(list_steps))):
-            os.makedirs("D:\\constr\\pic\\pic_path\\path" + str(len(list_steps)))
+        if not os.path.exists("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1)):
+            os.makedirs("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1))
 
-        plt.savefig("D:\\constr\\pic\\pic_path\\path" + str(len(list_steps)) + "\\" + "step" + str(i) + ".jpg",
-                    format='pdf', dpi=100)
+        plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1) + "/" + "step" + str(i) + ".png",
+                    format='png', dpi=100)
         plt.clf()
         plt.close()
 
@@ -365,7 +366,9 @@ def alg_trip(trust_radius, use_beta, beta=0):
         # Add new point to history of points
         step_history.append(new_point)
 
-        if norm_red_grad < 10 ** (-6):
+        print(norm_red_grad, "kdajskakjsd")
+
+        if norm_red_grad < 10 ** (-4):
             list_steps.append(i)
             list_conv.append(1)
             break
@@ -378,12 +381,12 @@ def alg_trip(trust_radius, use_beta, beta=0):
     #     print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
 
     plot(xs, ys, E)
-    plt.savefig("D:\\constr\\pic\\" + str(len(list_steps)) + ".jpg", format='png', dpi=100)
+    plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/" + str(len(list_steps)) + ".png", format='png', dpi=100)
     plt.clf()
     plt.close()
 
 
-for i in range(50):
+for i in range(1):
     alg_trip(1, True, 1.5)
     print("Done,", i)
 
