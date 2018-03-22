@@ -431,3 +431,4 @@ print('COUNT OF CONV = {}'.format(sum))
 # print("GRAD:", np.linalg.norm(E.grad(q_start)))
 
 
+
