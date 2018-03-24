@@ -340,8 +340,28 @@ list_times = []
 list_conv = []
 
 
-def alg_trip(trust_radius, use_beta, beta=0):
-    # Check start time
+def alg_trip(q_start, trust_radius=1, use_beta=True, beta=1.5):
+    """
+    This function find constrained local minimum of energy
+    :param q_start: start geometry (start point on the potential energy surface)
+    :param trust_radius: if use_beta = false is using like step restriction
+    :param use_beta: parameter to switch on / off usage of beta like step restriction multiplier
+    and multiplier for S-matrix in RFO
+    :param beta: step restriction multiplier and also and multiplier for S-matrix in RFO
+    :type trust_radius: float
+    :type use_beta: bool
+    :type beta: float
+
+    :returns: result of function is a point on the potential energy surface which is local minimum with
+    respects to constrains
+
+    ..warning:: function is not stable with respect to the choice beta we do not know exactly how to
+    stabilise behavior with any beta
+
+    .. note:: know function includes some debug tools like drawing plots and store execution
+    time and count of converged local minimum information
+    """
+    # DEBUG INFO: check start time
     start_time = t.time()
 
     # Add test energy function
@@ -354,19 +374,12 @@ def alg_trip(trust_radius, use_beta, beta=0):
     # History of all previous gradients of constrains
     drdq_history = []
 
-    # Start point
-    # q_start = np.matrix(np.random.randn(2, 1))
-    q_start = np.matrix([[1.], [1.]])
-
     # Add start point to the history
     step_history.append(q_start)
 
-    # Coordinates of the path to build a plot
+    # DEBUG INFO: coordinates of the path to build a plot
     xs = []
     ys = []
-
-    # DEBUG
-    plot(xs, ys, E)
 
     # Initialization of internal parameters
     x_beta = 1.0
@@ -382,6 +395,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
 
     # Main loop of the optimisation with constraint
     for i in range(k_max):
+        # DEBUG INFO: collect trip for plot it
         xs.append(step_history[i][0, 0])
         ys.append(step_history[i][1, 0])
 
@@ -407,8 +421,6 @@ def alg_trip(trust_radius, use_beta, beta=0):
 
         # Compute W at start_point with new current lambdas
         W = d2Edq2 + lam[0, 0] * d2rdq2
-        print(W)
-        # W = d2Edq2 + lam[0, 0] * 2 * np.identity(2)
 
         # Make series of BFGS update from start_point to the current point
         for j in range(len(step_history) - 1):
@@ -424,6 +436,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
         # Calculate step in T_b subspace
         delta_y = construct_dy(drdq, T_b, r(step_history[i]))
 
+        # Compute norm of step in constrained space
         norm_deltay = compute_norm(delta_y)
 
         # Reduced gradient and reduced hessian of the main optimisation Q-function
@@ -444,6 +457,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
 
             norm_deltax = compute_norm(delta_x)
 
+            # Make mysterious actions with set up step restriction
             if dy < 0.75 * norm_deltay or norm_deltay < 10 ** (-2):
                 y_beta = min(2, y_beta * sf)
             elif dy > 1.25 * norm_deltay and dy >= 10 ** (-5):
@@ -494,32 +508,40 @@ def alg_trip(trust_radius, use_beta, beta=0):
         # Add new point to history of points
         step_history.append(new_point)
 
-        if norm_red_grad < 10 ** (-10):
+        # primitive stop-criteria
+        if norm_red_grad < 10 ** (-6):
+            # DEBUG INFO: collect count of steps and information about convergence
             list_steps.append(i)
             list_conv.append(1)
-            break
-        else:
-            print(i)
-        # if len(step_history) > 20:
-        #     list_steps.append(i)
-        #     list_conv.append(1)
-        #     break
+            print(beta)
 
-    # Check execution time
+            break
+        # else:
+        # DEBUG INFO: show step
+        # print(i)
+
+    # DEBUG INFO: check up execution time
     t_end = t.time() - start_time
     list_times.append(t_end)
 
-    for stp in step_history:
-        print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
+    # # DEBUG INFO: show trip in console
+    # for stp in step_history:
+    #     print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
 
+    # DEBUG INFO: show plot of the trip on the potential
     plot(xs, ys, E)
-    plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/" + str(len(list_steps)) + ".png", format='png', dpi=100)
+    plt.savefig(
+        "/home/rusanov-vs/PycharmProjects/constr/pic/" + "beta" + str(1 + 0.25 * (len(list_steps) - 1)) + ".png",
+        format='png', dpi=100)
     plt.clf()
     plt.close()
 
 
+# DEBUG INFO: start point debug
+q_start = np.matrix([[1.], [1.]])
+
 for i in range(1):
-    alg_trip(1, True, 1)
+    alg_trip(q_start, beta=1)
     print("Done,", i)
 
 sum = 0
@@ -536,3 +558,31 @@ sum = 0
 for i in range(len(list_conv)):
     sum = sum + list_conv[i]
 print('COUNT OF CONV = {}'.format(sum))
+
+# x = 7.610179007133846e-07
+# y = 0.49999999999967826
+# q_start = np.matrix([[-0.1471188751403783], [-0.3366564852235889]])
+# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
+# print("E1", E)
+#
+# E = Func()
+# print("GRAD:", np.linalg.norm(E.grad(q_start)))
+#
+# x = 0.49999999973777204
+# y = -1.024165039804559e-05
+# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
+# q_start = np.matrix([[-0.09874143187854383], [-0.3334975027205661]])
+# print("E2", E)
+#
+# E = Func()
+# print("GRAD:", np.linalg.norm(E.grad(q_start)))
+#
+# x = -8.295484610231776e-08
+# y = -0.5000000000002409
+# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
+# q_start = np.matrix([[-0.09874143187854383], [-0.3334975027205661]])
+# print("E3", E)
+#
+# E = Func()
+# print("GRAD:", np.linalg.norm(E.grad(q_start)))
+#
