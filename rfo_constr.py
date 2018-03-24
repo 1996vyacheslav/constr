@@ -57,42 +57,77 @@ class Func3:
 
 def r(x):
     x, y = x
-    return x**2 / 0.04 + y**2 / 0.09 - 1
+    return sqrt(x ** 2 + y ** 2) - 0.5
+
 
 def get_drdq(x):
     x, y = x[0, 0], x[1, 0]
-    x = 2. * x / .3
-    y = 2. * y / .2
+    x = x / sqrt(x ** 2 + y ** 2)
+    y = y / sqrt(x ** 2 + y ** 2)
+
     return np.matrix([[x], [y]])
 
 
-def gram_schmidt_columns(X):
-    Q, R = np.linalg.qr(X)
-    return Q
+def get_d2rdq2(x):
+    x, y = x[0, 0], x[1, 0]
+    xx = y ** 2 / sqrt(x ** 2 + y ** 2) ** 3
+    xy = - x * y / sqrt(x ** 2 + y ** 2) ** 3
+    yy = x ** 2 / sqrt(x ** 2 + y ** 2) ** 3
+
+    return np.matrix([[xx, xy], [xy, yy]])
+
+
+'''Declaration and set up variables for RFO'''
+
+
+def gram_schmidt_columns(x):
+    """
+    Gram-Schmidt orthogonalization
+        returns matrix with orthonormal columns
+    :param x: matrix of vectors to make Gram-Schmidt  procedure
+    :return q: orthogonalized system of vectors
+    """
+    q, r_tmp = np.linalg.qr(x)
+    return q
 
 
 def get_rfo_step(grad, hess, beta):
-    M = np.matrix(np.block([[hess, grad], [grad.getT(), 0]]))
+    """
+    Compute RFO step
+    :param grad: gradient of Q-function (contains information about constrains)
+    :param hess: hessian of Q-function (contains information about constrains)
+    :param beta: step restriction and multiplier for S-matrix
+    :return: RFO step
+    """
+    m = np.matrix(np.block([[hess, grad], [grad.getT(), 0]]))
 
-    Z1 = np.matrix(np.zeros((1, nInter - nLambda)))
-    Z2 = np.matrix(np.ones((1, 1)))
-    S = np.matrix(np.eye(nInter - nLambda, nInter - nLambda))
-    S = np.bmat([[Z2, Z1.getT()], [Z1, beta * S]])
-    M = S.getI() * M
+    z1 = np.matrix(np.zeros((1, nInter - nLambda)))
+    z2 = np.matrix(np.ones((1, 1)))
+    s = np.matrix(np.eye(nInter - nLambda, nInter - nLambda))
+    s = np.bmat([[z2, z1.getT()], [z1, beta * s]])
+    m = s.getI() * m
 
-    w, v = np.linalg.eigh(M)
+    w, v = np.linalg.eigh(m)
     dx = v[:-1, 0] / v[-1, 0]
     return dx
 
 
-def construct_T(drdq):
+def construct_t_matrix(drdq):
+    """
+    Make T_matrix to divide space into constrained an non-constrained part
+        returns T_matrix
+    :param drdq: gradient of constrains
+    :return T: matrix with orthogonalized system of vectors
+    """
     T = np.matrix(np.zeros((nInter, nInter)))
     drdq = drdq.getT()
 
+    # Fill rows of T_matrix with gradient of constrains
     T[:nLambda] = drdq
 
-    for i in range(nInter - nLambda):
-        T[i + nLambda, i] = 1;
+    # Fill zero-part of T with ones on the diagonal
+    for index in range(nInter - nLambda):
+        T[index + nLambda, index] = 1
 
     T = gram_schmidt_columns(T.getT()).getT()
 
@@ -100,15 +135,30 @@ def construct_T(drdq):
 
 
 def construct_T_b(T):
+    """
+    Divide matrix T with two sub-spaces
+        returns T_b matrix contained constrained part
+    :param T: T -- np.matrix with orthogonalized system of vect
+    :return T_b: Matrix contain part of the space with constrains
+    """
     T_b = np.matrix(np.zeros((nLambda, nInter)))
+
     for i in range(nLambda):
         for j in range(nInter):
             T_b[i, j] = T[i, j]
+
     T_b = T_b.getT()
     return T_b
 
 
 def construct_T_ti(T):
+    """
+    Divide matrix T with two sub-spaces
+        returns T_b matrix contained non-constrained part
+    :param T: T -- np.matrix with orthogonalized system
+    :return T_ti: Matrix contain part of the space connected with
+    constrains and value of energy
+    """
     T_ti = np.matrix(np.zeros((nInter - nLambda, nInter)))
     for i in range(nInter - nLambda):
         for j in range(nInter):
@@ -120,6 +170,12 @@ def construct_T_ti(T):
 
 
 def construct_dy(drdq, T_b, r):
+    """
+    Makes a projection into T_b space
+        returns vector-projection
+    :param drdq: vector of gradients of constrains at the special point
+    :return dy: step in the constrained space
+    """
     tmp = drdq.getT() * T_b
     tmp = tmp.getI()
     dy = tmp * r
@@ -129,16 +185,45 @@ def construct_dy(drdq, T_b, r):
 
 
 def construct_x(q, T_ti):
+    """
+    Makes a projection into T_ti space
+        returns vector-projection
+    :param q: vector of special point
+    :param T_ti: Matrix contain part of the space connected with
+    constrains and value of energy
+    :return x: step in the space connected with constrained part of space and energy
+    """
     x = T_ti.getT() * q
     return x
 
 
 def construct_dx(dq, T_ti):
+    """
+    Makes a projection of derivatives into T_ti space
+        returns vector-projection
+    :param dq: delta vector of special point
+    :param T_ti:  Matrix contain part of the space connected with
+    constrains and value of energy
+    :return x: delta step in the space connected with constrained part of space and energy
+    """
     dx = T_ti.getT() * dq
     return dx
 
 
 def construct_reduced_grad(dEdq, W, dy, T_b, T_ti):
+    """
+    Build gradient Q-fucntion, optimisation of Q-function is a solution of Lagrange
+        problem
+        returns reduced gradient of Q function (contains information about constrains)
+    :param dEdq: gradient of energy at a special point
+    :param W: hessian of the Lagrange problem
+    :param dy: step in the constrained space
+    :param T_b: Matrix contain part of the space with constrains
+    :param T_ti: Matrix contain part of the space connected with
+    constrains and value of energy
+    :return red_grad: reduced gradient of Q function (contains information about constrains)
+    """
+
     tmp1 = dEdq
     tmp2 = W * T_b
     tmp3 = tmp2 * dy
@@ -149,6 +234,15 @@ def construct_reduced_grad(dEdq, W, dy, T_b, T_ti):
 
 
 def construct_reduced_hess(W, T_ti):
+    """
+    Build hessian Q-function, optimisation of Q-function is a solution of Lagrange
+        problem
+        returns reduced hessian of Q function
+    :param W: hessian of the Lagrange problem
+    :param T_ti: Matrix contain part of the space connected with
+    constrains and value of energy
+    :return red_hess: reduced hessian of Q function (contains information about constrains)
+    """
     tmp = T_ti.getT() * W
     red_hess = tmp * T_ti
 
@@ -156,6 +250,13 @@ def construct_reduced_hess(W, T_ti):
 
 
 def construct_lambda(drdq, dEdq):
+    """
+    Build vector of lambdas
+        returns vector of lambdas
+    :param drdq: gradient of constrains at a special point
+    :param dEdq: gradient of energy at a special point
+    :return rLambda: vector of Lagrange multipliers
+    """
     tmp = drdq.getT() * drdq
     tmp.getI()
     tmp = tmp * drdq.getT()
@@ -165,20 +266,39 @@ def construct_lambda(drdq, dEdq):
 
 
 def compute_norm(vect_col):
-    norm = 0
-    for i in vect_col:
-        norm += float(i) * float(i)
-    norm = norm ** (0.5)
-
+    """
+    Calculate normal of vector-column
+        returns float normal
+    :param vect_col: vector
+    :return: norm of the vector
+    """
     return np.linalg.norm(vect_col)
 
 
 def construct_h(dEdq, drdq, lambdas):
+    """
+    Build h-vector (gradient of W)
+        return gradient vector W
+    :param dEdq: gradient of energy at a special point
+    :param drdq: gradient of constrains at a special point
+    :param lambdas: vector of Lagrange multipliers
+    :return h: gradient of W (part of redused gradient and hessian of Q-function,
+    optimisation of Q-function is a solution of Lagrange problem
+    """
     h = dEdq - drdq * lambdas
     return h
 
 
 def bfgs_update_W(prev_W, delta_grad, delta_q):
+    """
+    BFGS update of W, W - is the part of reduced gradient and hessian
+        we mean B_s in BFGS formula is W
+        returns updated W
+    :param prev_W: value W in the previous step
+    :param delta_grad: change of gradient W (h-vector) between previous step
+    :param delta_q: change of reaction coordinate between previous step
+    :return W: updated with BFGS procedure W
+    """
     s_k = delta_q
     y_k = delta_grad
 
@@ -218,6 +338,8 @@ def plot(xs, ys, func):
 list_steps = []
 list_times = []
 list_conv = []
+
+
 def alg_trip(trust_radius, use_beta, beta=0):
     # Check start time
     start_time = t.time()
@@ -233,8 +355,8 @@ def alg_trip(trust_radius, use_beta, beta=0):
     drdq_history = []
 
     # Start point
-    #q_start = np.matrix(np.random.randn(2, 1))
-    q_start = np.matrix([[-1.], [-1.]])
+    # q_start = np.matrix(np.random.randn(2, 1))
+    q_start = np.matrix([[1.], [1.]])
 
     # Add start point to the history
     step_history.append(q_start)
@@ -243,16 +365,20 @@ def alg_trip(trust_radius, use_beta, beta=0):
     xs = []
     ys = []
 
+    # DEBUG
+    plot(xs, ys, E)
+
     # Initialization of internal parameters
     x_beta = 1.0
     y_beta = 1.0
     g_beta = 1.0
 
     # Maximum count of the steps
-    k_max = 2000
+    k_max = 1000
 
     # Get energy hessian at start point
     d2Edq2 = E.hess(q_start)
+    d2rdq2 = get_d2rdq2(q_start)
 
     # Main loop of the optimisation with constraint
     for i in range(k_max):
@@ -268,8 +394,6 @@ def alg_trip(trust_radius, use_beta, beta=0):
         # plt.clf()
         # plt.close()
 
-
-
         # Compute gradients of energy and constrains
         dEdq = E.grad(step_history[i])
         drdq = get_drdq(step_history[i])
@@ -282,7 +406,9 @@ def alg_trip(trust_radius, use_beta, beta=0):
         lam = construct_lambda(drdq, dEdq)
 
         # Compute W at start_point with new current lambdas
-        W = d2Edq2 + lam[0, 0] * 2 * np.identity(2)
+        W = d2Edq2 + lam[0, 0] * d2rdq2
+        print(W)
+        # W = d2Edq2 + lam[0, 0] * 2 * np.identity(2)
 
         # Make series of BFGS update from start_point to the current point
         for j in range(len(step_history) - 1):
@@ -290,9 +416,8 @@ def alg_trip(trust_radius, use_beta, beta=0):
                               construct_h(dEdq_history[j], drdq_history[j], lam),
                               step_history[j + 1] - step_history[j])
 
-
         # Dividing into to subspaces
-        T = construct_T(drdq)
+        T = construct_t_matrix(drdq)
         T_b = construct_T_b(T)
         T_ti = construct_T_ti(T)
 
@@ -394,7 +519,7 @@ def alg_trip(trust_radius, use_beta, beta=0):
 
 
 for i in range(1):
-    alg_trip(1, True, 0.01)
+    alg_trip(1, True, 1)
     print("Done,", i)
 
 sum = 0
@@ -411,23 +536,3 @@ sum = 0
 for i in range(len(list_conv)):
     sum = sum + list_conv[i]
 print('COUNT OF CONV = {}'.format(sum))
-
-# x = -0.1471188751403783
-# y = -0.3366564852235889
-# q_start = np.matrix([[-0.1471188751403783], [-0.3366564852235889]])
-# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
-# print("E1", E)
-#
-# E = Func()
-# print("GRAD:", np.linalg.norm(E.grad(q_start)))
-#
-# x = -0.09874143187854383
-# y = -0.3334975027205661
-# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
-# q_start = np.matrix([[-0.09874143187854383], [-0.3334975027205661]])
-# print("E2", E)
-#
-# E = Func()
-# print("GRAD:", np.linalg.norm(E.grad(q_start)))
-#
-#
