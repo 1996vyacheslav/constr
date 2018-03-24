@@ -313,6 +313,17 @@ def bfgs_update_W(prev_W, delta_grad, delta_q):
 
 
 def plot(xs, ys, func):
+    """
+    Debug function, build plot of RFO steps on the model f(x, y) energy
+    :param xs: list of abscissas
+    :param ys: list of ordinates
+    :param func: model 2D potential
+    :return: plot
+
+    ..warning:: should to close plt.close() and clear field plt.clf() after every call
+
+    ..note:: for showing plot after the function need to usr plt.show()
+    """
     plt.figure(figsize=(10, 10))
 
     x = np.linspace(-2, 2, 100)
@@ -335,6 +346,7 @@ def plot(xs, ys, func):
     plt.plot(xs, ys, c='r')
 
 
+# DEBUG INFO: collect statistics of steps of RFO before convergence, execution time, count of converges
 list_steps = []
 list_times = []
 list_conv = []
@@ -403,7 +415,8 @@ def alg_trip(q_start, trust_radius=1, use_beta=True, beta=1.5):
         # if not os.path.exists("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1)):
         #     os.makedirs("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1))
         #
-        # plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1) + "/" + "step" + str(i) + ".png",
+        # plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1) + "/" + "step"
+        #  + str(i) + ".png",
         #             format='png', dpi=100)
         # plt.clf()
         # plt.close()
