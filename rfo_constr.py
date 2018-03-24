@@ -1,10 +1,24 @@
+"""
+This module contain constrained RFO optimisation
+ARTICLES:
+1)  J. Chem. Theory Comput. 2005, 1, 1029-1037
+    New General Tools for Constrained Geometry Optimizations (Luca De Vico, Massimo Olivucci, Roland Lindh)
+2)  J Comput. Chem. 18: 992-1003, 1997
+    A Reduced-Restricted-Quasi-Newton-Raphson Method for Locating and Optimizing
+    Energy Crossing Points Between Two Potential Energy Surfaces (Josep Maria Anglada, Josep Maria Bofill)
+3)  Theor. Chem. Acc. (1998) 100:265-274
+    On the automatic restricted-step rational-function-optimization method (Emili Besalu, Josep Maria Bofill)
+"""
+
 from math import *
 import os
 import numpy as np
 from matplotlib import pyplot as plt
 import time as t
 
+# Count of constrain
 nLambda = 1
+# Count of degrees of freedom
 nInter = 2
 
 
@@ -352,14 +366,15 @@ list_times = []
 list_conv = []
 
 
-def alg_trip(q_start, trust_radius=1, use_beta=True, beta=1.5):
+def alg_trip(q_start, use_beta=True, beta=1.5, trust_radius=1):
     """
     This function find constrained local minimum of energy
     :param q_start: start geometry (start point on the potential energy surface)
-    :param trust_radius: if use_beta = false is using like step restriction
     :param use_beta: parameter to switch on / off usage of beta like step restriction multiplier
     and multiplier for S-matrix in RFO
     :param beta: step restriction multiplier and also and multiplier for S-matrix in RFO
+    :param trust_radius: if use_beta = false is using like step restriction
+    :type q_start: np.matrix()
     :type trust_radius: float
     :type use_beta: bool
     :type beta: float
@@ -529,9 +544,6 @@ def alg_trip(q_start, trust_radius=1, use_beta=True, beta=1.5):
             print(beta)
 
             break
-        # else:
-        # DEBUG INFO: show step
-        # print(i)
 
     # DEBUG INFO: check up execution time
     t_end = t.time() - start_time
