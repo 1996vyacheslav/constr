@@ -69,24 +69,44 @@ class Func3:
         return hess
 
 
+# def r(x):
+#     x, y = x
+#     return sqrt(x ** 2 + y ** 2) - 0.5
+#
+#
+# def get_drdq(x):
+#     x, y = x[0, 0], x[1, 0]
+#     x = x / sqrt(x ** 2 + y ** 2)
+#     y = y / sqrt(x ** 2 + y ** 2)
+#
+#     return np.matrix([[x], [y]])
+#
+#
+# def get_d2rdq2(x):
+#     x, y = x[0, 0], x[1, 0]
+#     xx = y ** 2 / sqrt(x ** 2 + y ** 2) ** 3
+#     xy = - x * y / sqrt(x ** 2 + y ** 2) ** 3
+#     yy = x ** 2 / sqrt(x ** 2 + y ** 2) ** 3
+#
+#     return np.matrix([[xx, xy], [xy, yy]])
+
 def r(x):
     x, y = x
-    return sqrt(x ** 2 + y ** 2) - 0.5
-
+    return (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2 + 1
 
 def get_drdq(x):
     x, y = x[0, 0], x[1, 0]
-    x = x / sqrt(x ** 2 + y ** 2)
-    y = y / sqrt(x ** 2 + y ** 2)
 
-    return np.matrix([[x], [y]])
-
+    dEdx = (2 * (1 - y ** 2) * exp(-x ** 2) * (x - x ** 3))
+    dEdy = (1 - 2 * x ** 2 * exp(-x ** 2)) * y
+    return np.matrix([[dEdx], [dEdy]])
 
 def get_d2rdq2(x):
     x, y = x[0, 0], x[1, 0]
-    xx = y ** 2 / sqrt(x ** 2 + y ** 2) ** 3
-    xy = - x * y / sqrt(x ** 2 + y ** 2) ** 3
-    yy = x ** 2 / sqrt(x ** 2 + y ** 2) ** 3
+
+    xx = (2 * (1 - y ** 2) * exp(-x ** 2) * (2 * x ** 4 - 5 * x ** 2 + 1))
+    xy = (4 * y * exp(-x ** 2) * x * (x - 1) * (x + 1))
+    yy = -(1 - 2 * x ** 2 * exp(-x ** 2))
 
     return np.matrix([[xx, xy], [xy, yy]])
 
@@ -114,14 +134,16 @@ def get_rfo_step(grad, hess, beta):
     :return: RFO step
     """
     m = np.matrix(np.block([[hess, grad], [grad.getT(), 0]]))
-
+    print("jhsadj\n", m, "\n")
     z1 = np.matrix(np.zeros((1, nInter - nLambda)))
     z2 = np.matrix(np.ones((1, 1)))
     s = np.matrix(np.eye(nInter - nLambda, nInter - nLambda))
     s = np.bmat([[z2, z1.getT()], [z1, beta * s]])
     m = s.getI() * m
 
+    print(m)
     w, v = np.linalg.eigh(m)
+    print(w)
     dx = v[:-1, 0] / v[-1, 0]
     return dx
 
@@ -188,6 +210,8 @@ def construct_dy(drdq, T_b, r):
     Makes a projection into T_b space
         returns vector-projection
     :param drdq: vector of gradients of constrains at the special point
+    :param T_b: matrix contained non-constrained part
+    :param r: value of constrains at the special point
     :return dy: step in the constrained space
     """
     tmp = drdq.getT() * T_b
@@ -286,7 +310,7 @@ def compute_norm(vect_col):
     :param vect_col: vector
     :return: norm of the vector
     """
-    return np.linalg.norm(vect_col)
+    return np.linalg.norm(vect_col, ord=2)
 
 
 def construct_h(dEdq, drdq, lambdas):
@@ -355,7 +379,7 @@ def plot(xs, ys, func):
             z_r[i, j] = r([x, y])
 
     # plt.figure(figsize=(50, 50))
-    plt.contour(x_grid, y_grid, z_E, 200)
+    plt.contour(x_grid, y_grid, z_E - z_r)
     plt.contour(x_grid, y_grid, z_r, [0], colors='black')
     plt.plot(xs, ys, c='r')
 
@@ -366,7 +390,7 @@ list_times = []
 list_conv = []
 
 
-def alg_trip(q_start, use_beta=True, beta=1.5, trust_radius=1):
+def rfo_constr(q_start, use_beta=True, beta=1.5, trust_radius=1):
     """
     This function find constrained local minimum of energy
     :param q_start: start geometry (start point on the potential energy surface)
@@ -407,6 +431,9 @@ def alg_trip(q_start, use_beta=True, beta=1.5, trust_radius=1):
     # DEBUG INFO: coordinates of the path to build a plot
     xs = []
     ys = []
+
+    plot(xs, ys, E)
+    plt.show()
 
     # Initialization of internal parameters
     x_beta = 1.0
@@ -541,8 +568,6 @@ def alg_trip(q_start, use_beta=True, beta=1.5, trust_radius=1):
             # DEBUG INFO: collect count of steps and information about convergence
             list_steps.append(i)
             list_conv.append(1)
-            print(beta)
-
             break
 
     # DEBUG INFO: check up execution time
@@ -556,7 +581,7 @@ def alg_trip(q_start, use_beta=True, beta=1.5, trust_radius=1):
     # DEBUG INFO: show plot of the trip on the potential
     plot(xs, ys, E)
     plt.savefig(
-        "/home/rusanov-vs/PycharmProjects/constr/pic/" + "beta" + str(1 + 0.25 * (len(list_steps) - 1)) + ".png",
+        "/home/rusanov-vs/PycharmProjects/constr/pic/" + str((len(list_steps))) + ".png",
         format='png', dpi=100)
     plt.clf()
     plt.close()
@@ -566,7 +591,7 @@ def alg_trip(q_start, use_beta=True, beta=1.5, trust_radius=1):
 q_start = np.matrix([[1.], [1.]])
 
 for i in range(1):
-    alg_trip(q_start, beta=1)
+    rfo_constr(q_start, beta=1)
     print("Done,", i)
 
 sum = 0
@@ -584,30 +609,3 @@ for i in range(len(list_conv)):
     sum = sum + list_conv[i]
 print('COUNT OF CONV = {}'.format(sum))
 
-# x = 7.610179007133846e-07
-# y = 0.49999999999967826
-# q_start = np.matrix([[-0.1471188751403783], [-0.3366564852235889]])
-# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
-# print("E1", E)
-#
-# E = Func()
-# print("GRAD:", np.linalg.norm(E.grad(q_start)))
-#
-# x = 0.49999999973777204
-# y = -1.024165039804559e-05
-# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
-# q_start = np.matrix([[-0.09874143187854383], [-0.3334975027205661]])
-# print("E2", E)
-#
-# E = Func()
-# print("GRAD:", np.linalg.norm(E.grad(q_start)))
-#
-# x = -8.295484610231776e-08
-# y = -0.5000000000002409
-# E = (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
-# q_start = np.matrix([[-0.09874143187854383], [-0.3334975027205661]])
-# print("E3", E)
-#
-# E = Func()
-# print("GRAD:", np.linalg.norm(E.grad(q_start)))
-#
