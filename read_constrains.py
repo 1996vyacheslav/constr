@@ -55,12 +55,14 @@ def calc_A(atom_1, atom_2, atom_3):
 def calc_D(atom_1, atom_2, atom_3, atom_4):
     tmp1 = atom_1 - atom_2
     tmp2 = atom_3 - atom_2
-    tmp3 = atom_4 - atom_3
+    tmp3 = atom_3 - atom_4
 
     angle = np.arctan2(np.cross(np.cross(tmp1, tmp2), np.cross(tmp2, tmp3)).dot(tmp2 / np.linalg.norm(tmp2, ord=2)),
                        np.cross(tmp1, tmp2).dot(np.cross(tmp2, tmp3)))
 
-    return rad_to_grad(angle)
+    angle = rad_to_grad(angle)
+    return angle
+
 
 
 def pacer_B(string, mol):
@@ -166,7 +168,7 @@ class constrain:
             string = string + str(i) + " \n"
 
         if self.constr_param == "F":
-            string = string + "PARAM FROZEN "
+            string = string + "PARAM FROZEN -- "
             if self.constr_type == "B":
                 string = string + "LENGTH: " + str(self.length)
             elif self.constr_type == "A":
@@ -174,7 +176,7 @@ class constrain:
             elif self.constr_type == "D":
                 string = string + "DIHEDRAL ANGLE: " + str(self.angle)
         else:
-            string = string + "PARAM SET "
+            string = string + "PARAM SET -- "
             if self.constr_type == "B":
                 string = string + "LENGTH: " + str(self.length)
             elif self.constr_type == "A":
