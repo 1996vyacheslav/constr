@@ -15,6 +15,7 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 import time as t
+from numpy.linalg import inv
 
 
 class Func:
@@ -30,7 +31,7 @@ class Func:
 
         dEdx = 2 * (1 - y ** 2) * exp(-x ** 2) * (x - x ** 3)
         dEdy = (1 - 2 * x ** 2 * exp(-x ** 2)) * y
-        return np.matrix([[dEdx], [dEdy]])
+        return np.array([[dEdx], [dEdy]])
 
     def hess(self, x):
         x, y = x[0, 0], x[1, 0]
@@ -39,7 +40,7 @@ class Func:
         xy = 4 * y * exp(-x ** 2) * x * (x - 1) * (x + 1);
         yy = 1 - 2 * x ** 2 * exp(-x ** 2)
 
-        return np.matrix([[xx, xy], [xy, yy]])
+        return np.array([[xx, xy], [xy, yy]])
 
 
 class Func3:
@@ -50,18 +51,19 @@ class Func3:
         return self.inner(x[:2]) + self.inner(x[1:])
 
     def grad(self, x):
-        grad = np.matrix(np.zeros((3, 1)))
+        grad = np.zeros(3, 1)
         grad[:2, 0] = self.inner.grad(x[:2])
         grad[1:, 0] = self.inner.grad(x[1:])
 
         return grad
 
     def hess(self, x):
-        hess = np.matrix(np.zeros((3, 3)))
+        hess = np.zeros(3, 3)
         hess[:2, :2] = self.inner.hess(x[:2])
         hess[1:, 1:] = self.inner.hess(x[1:])
 
         return hess
+
 
 # def r(x):
 #     x, y = x
@@ -86,14 +88,16 @@ class Func3:
 
 def r(x):
     x, y = x
-    return (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2 + 1 - x
+    return np.array([(1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2 + 1 - x])
+
 
 def get_drdq(x):
     x, y = x[0, 0], x[1, 0]
 
     dEdx = (2 * (1 - y ** 2) * exp(-x ** 2) * (x - x ** 3)) - 1
     dEdy = (1 - 2 * x ** 2 * exp(-x ** 2)) * y
-    return np.matrix([[dEdx], [dEdy]])
+    return np.array([[dEdx], [dEdy]])
+
 
 def get_d2rdq2(x):
     x, y = x[0, 0], x[1, 0]
@@ -102,7 +106,7 @@ def get_d2rdq2(x):
     xy = (4 * y * exp(-x ** 2) * x * (x - 1) * (x + 1))
     yy = -(1 - 2 * x ** 2 * exp(-x ** 2))
 
-    return np.matrix([[xx, xy], [xy, yy]])
+    return np.array([[xx, xy], [xy, yy]]).transpose()
 
 
 '''Declaration and set up variables for RFO'''
@@ -130,17 +134,17 @@ def get_rfo_step(grad, hess, beta, nInter, nLambda):
     :return: RFO step
     """
     print("M")
-    m = np.matrix(np.block([[hess, grad], [grad.getT(), 0]]))
+    m = np.block([[hess, grad], [grad.transpose(), 0]])
     print(m)
     print("m")
-    z1 = np.matrix(np.zeros((1, nInter - nLambda)))
-    z2 = np.matrix(np.ones((1, 1)))
-    s = np.matrix(np.eye(nInter - nLambda, nInter - nLambda))
+    z1 = np.zeros((1, nInter - nLambda))
+    z2 = np.ones((1, 1))
+    s = np.eye(nInter - nLambda, nInter - nLambda)
     print("S")
-    s = np.bmat([[z2, z1.getT()], [z1, beta * s]])
+    s = np.block([[z2, z1.transpose()], [z1, beta * s]])
     print(s)
     print("s")
-    m = s.getI() * m
+    m = np.dot(inv(s), m)
 
     w, v = np.linalg.eigh(m)
 
@@ -157,8 +161,8 @@ def construct_t_matrix(drdq, nInter, nLambda):
     :param nLambda: count of constrains
     :return T: matrix with orthogonalized system of vectors
     """
-    T = np.matrix(np.zeros((nInter, nInter)))
-    drdq = drdq.getT()
+    T = np.zeros((nInter, nInter))
+    drdq = drdq.transpose()
 
     # Fill rows of T_matrix with gradient of constrains
     T[:nLambda] = drdq
@@ -167,7 +171,7 @@ def construct_t_matrix(drdq, nInter, nLambda):
     for index in range(nInter - nLambda):
         T[index + nLambda, index] = 1
 
-    T = gram_schmidt_columns(T.getT()).getT()
+    T = gram_schmidt_columns(T.transpose()).transpose()
 
     return T
 
@@ -181,13 +185,13 @@ def construct_T_b(T, nInter, nLambda):
     :param nLambda: count of constrains
     :return T_b: Matrix contain part of the space with constrains
     """
-    T_b = np.matrix(np.zeros((nLambda, nInter)))
+    T_b = np.zeros((nLambda, nInter))
 
     for i in range(nLambda):
         for j in range(nInter):
             T_b[i, j] = T[i, j]
 
-    T_b = T_b.getT()
+    T_b = T_b.transpose()
     return T_b
 
 
@@ -201,12 +205,12 @@ def construct_T_ti(T, nInter, nLambda):
     :return T_ti: Matrix contain part of the space connected with
     constrains and value of energy
     """
-    T_ti = np.matrix(np.zeros((nInter - nLambda, nInter)))
+    T_ti = np.zeros((nInter - nLambda, nInter))
     for i in range(nInter - nLambda):
         for j in range(nInter):
             T_ti[i, j] = T[i + nLambda, j]
 
-    T_ti = T_ti.getT()
+    T_ti = T_ti.transpose()
 
     return T_ti
 
@@ -220,9 +224,9 @@ def construct_dy(drdq, T_b, r):
     :param r: value of constrains at the special point
     :return dy: step in the constrained space
     """
-    tmp = drdq.getT() * T_b
-    tmp = tmp.getI()
-    dy = tmp * r
+    tmp = np.dot(drdq.transpose(), T_b)
+    tmp = inv(tmp)
+    dy = np.dot(tmp, r)
     dy *= -1
 
     return dy
@@ -237,7 +241,7 @@ def construct_x(q, T_ti):
     constrains and value of energy
     :return x: step in the space connected with constrained part of space and energy
     """
-    x = T_ti.getT() * q
+    x = np.dot(T_ti.transpose(), q)
     return x
 
 
@@ -250,7 +254,7 @@ def construct_dx(dq, T_ti):
     constrains and value of energy
     :return x: delta step in the space connected with constrained part of space and energy
     """
-    dx = T_ti.getT() * dq
+    dx = np.dot(T_ti.transpose(), dq)
     return dx
 
 
@@ -269,10 +273,10 @@ def construct_reduced_grad(dEdq, W, dy, T_b, T_ti):
     """
 
     tmp1 = dEdq
-    tmp2 = W * T_b
-    tmp3 = tmp2 * dy
+    tmp2 = np.dot(W, T_b)
+    tmp3 = np.dot(tmp2, dy)
     tmp1 = -tmp3 + tmp1
-    red_grad = T_ti.getT() * tmp1
+    red_grad = np.dot(T_ti.transpose(), tmp1)
 
     return red_grad
 
@@ -287,8 +291,8 @@ def construct_reduced_hess(W, T_ti):
     constrains and value of energy
     :return red_hess: reduced hessian of Q function (contains information about constrains)
     """
-    tmp = T_ti.getT() * W
-    red_hess = tmp * T_ti
+    tmp = np.dot(T_ti.transpose(), W)
+    red_hess = np.dot(tmp, T_ti)
 
     return red_hess
 
@@ -301,10 +305,10 @@ def construct_lambda(drdq, dEdq):
     :param dEdq: gradient of energy at a special point
     :return rLambda: vector of Lagrange multipliers
     """
-    tmp = drdq.getT() * drdq
-    tmp.getI()
-    tmp = tmp * drdq.getT()
-    rLambda = tmp * dEdq
+    tmp = np.dot(drdq.transpose(), drdq)
+    tmp = inv(tmp)
+    tmp = np.dot(tmp, drdq.transpose())
+    rLambda = np.dot(tmp, dEdq)
 
     return rLambda
 
@@ -329,7 +333,7 @@ def construct_h(dEdq, drdq, lambdas):
     :return h: gradient of W (part of redused gradient and hessian of Q-function,
     optimisation of Q-function is a solution of Lagrange problem
     """
-    h = dEdq - drdq * lambdas
+    h = dEdq - np.dot(drdq, lambdas)
     return h
 
 
@@ -346,10 +350,10 @@ def bfgs_update_W(prev_W, delta_grad, delta_q):
     s_k = delta_q
     y_k = delta_grad
 
-    tmp1 = y_k * y_k.getT()
-    tmp2 = y_k.getT() * s_k
-    tmp3 = prev_W * s_k * s_k.getT() * prev_W
-    tmp4 = s_k.getT() * prev_W * s_k
+    tmp1 = np.dot(y_k, y_k.transpose())
+    tmp2 = np.dot(y_k.transpose(), s_k)
+    tmp3 = np.dot(np.dot(np.dot(prev_W, s_k), s_k.transpose()), prev_W)
+    tmp4 = np.dot(np.dot(s_k.transpose(), prev_W), s_k)
 
     W = prev_W - tmp3 / tmp4 + tmp1 / tmp2
 
@@ -601,7 +605,7 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
 
 
 # DEBUG INFO: start point debug
-q_start = np.matrix([[1.], [1.]])
+q_start = np.array([[1.], [1.]])
 for i in range(1):
     rfo_constr(2, 1, q_start, beta=1)
     print("Done,", i)
@@ -620,4 +624,3 @@ sum = 0
 for i in range(len(list_conv)):
     sum = sum + list_conv[i]
 print('COUNT OF CONV = {}'.format(sum))
-

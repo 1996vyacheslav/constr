@@ -18,13 +18,13 @@ def string_ready_list(string):
 def parser_xyz(file_path):
     list_atoms = []
     if not os.path.exists(file_path):
-        print("NOT FOUND: File with constrains")
+        print("NOT FOUND: File with structure (*.xyz)")
     else:
         file = open(file_path, 'r')
 
+        num_in_file = 0
         for line in file:
             line = string_ready_list(line)
-
             charge = 0
             comp_pos = []
 
@@ -33,7 +33,8 @@ def parser_xyz(file_path):
                     charge = int(line[i])
                 else:
                     comp_pos.append(float(line[i]))
-            list_atoms.append(atom(charge, comp_pos))
+            num_in_file = num_in_file + 1
+            list_atoms.append(atom(charge, comp_pos, num_in_file))
         return list_atoms
 
 
@@ -42,14 +43,22 @@ def rad_to_grad(angle):
 
 
 def calc_B(atom_1, atom_2):
-    return np.linalg.norm(atom_1 - atom_2, ord=2)
+    return np.linalg.norm(atom_1 - atom_2)
 
 
 def calc_A(atom_1, atom_2, atom_3):
+    eps = 10 ** (-8)
     tmp1 = atom_1 - atom_2
     tmp2 = atom_3 - atom_2
-    angle = np.arccos(tmp1.dot(tmp2) / (np.linalg.norm(tmp1, ord=2) * np.linalg.norm(tmp2, ord=2)))
-    return rad_to_grad(angle)
+    tmp4 = tmp1.dot(tmp2) / (np.linalg.norm(tmp1) * np.linalg.norm(tmp2))
+
+    if tmp4 + eps > -1 and tmp4 - eps < -1:
+        return 180.
+    elif tmp4 + eps > 1 and tmp4 - eps < 1:
+        return 0.
+    else:
+        angle = np.arccos(tmp4)
+        return rad_to_grad(angle)
 
 
 def calc_D(atom_1, atom_2, atom_3, atom_4):
@@ -57,12 +66,11 @@ def calc_D(atom_1, atom_2, atom_3, atom_4):
     tmp2 = atom_3 - atom_2
     tmp3 = atom_3 - atom_4
 
-    angle = np.arctan2(np.cross(np.cross(tmp1, tmp2), np.cross(tmp2, tmp3)).dot(tmp2 / np.linalg.norm(tmp2, ord=2)),
+    angle = np.arctan2(np.cross(np.cross(tmp1, tmp2), np.cross(tmp2, tmp3)).dot(tmp2 / np.linalg.norm(tmp2)),
                        np.cross(tmp1, tmp2).dot(np.cross(tmp2, tmp3)))
 
     angle = rad_to_grad(angle)
     return angle
-
 
 
 def pacer_B(string, mol):
@@ -86,14 +94,12 @@ def parcer_A(string, mol):
     list_splited_str = string_ready_list(string)
 
     if list_splited_str[-1] == "F":
-        at.append(mol[int(list_splited_str[1]) - 1])
-        at.append(mol[int(list_splited_str[2]) - 1])
-        at.append(mol[int(list_splited_str[3]) - 1])
+        for i in range(3):
+            at.append(mol[int(list_splited_str[i + 1]) - 1])
         constr = constrain(type="A", param="F", atoms=at)
     else:
-        at.append(mol[int(list_splited_str[1]) - 1])
-        at.append(mol[int(list_splited_str[2]) - 1])
-        at.append(mol[int(list_splited_str[3]) - 1])
+        for i in range(3):
+            at.append(mol[int(list_splited_str[i + 1]) - 1])
         constr = constrain(type="A", atoms=at, angle=float(list_splited_str[-1]))
 
     return constr
@@ -104,34 +110,117 @@ def parcer_D(string, mol):
     list_splited_str = string_ready_list(string)
 
     if list_splited_str[-1] == "F":
-        at.append(mol[int(list_splited_str[1]) - 1])
-        at.append(mol[int(list_splited_str[2]) - 1])
-        at.append(mol[int(list_splited_str[3]) - 1])
-        at.append(mol[int(list_splited_str[4]) - 1])
+        for i in range(4):
+            at.append(mol[int(list_splited_str[i + 1]) - 1])
         constr = constrain(type="D", param="F", atoms=at)
     else:
-        at.append(mol[int(list_splited_str[1]) - 1])
-        at.append(mol[int(list_splited_str[2]) - 1])
-        at.append(mol[int(list_splited_str[3]) - 1])
-        at.append(mol[int(list_splited_str[4]) - 1])
+        for i in range(4):
+            at.append(mol[int(list_splited_str[i + 1]) - 1])
         constr = constrain(type="D", atoms=at, angle=float(list_splited_str[-1]))
 
     return constr
 
 
 class atom:
-    def __init__(self, charge, position=[]):
+    def __init__(self, charge, position=[], number_in_mol=0):
         self.charge = charge
         self.pos = np.array(position, dtype=float)
+        self.number_in_mol = number_in_mol
 
     def __str__(self):
         string = ""
-        string = string + "CHARGE: " + str(self.charge) + " POS: "
+        string = string + "N: " + str(self.number_in_mol) + " CHARGE: " + str(self.charge) + " POS: "
 
         for i in self.pos:
             string = string + str(i) + "; "
         return string
 
+
+class B_func:
+    def __init__(self, const, point):
+        self.point = point
+        self.con = const
+
+    def get_value(self):
+        vec1 = self.point[3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol]
+        vec2 = self.point[3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol]
+
+        return vec1.dot(vec1) - vec2.dot(vec2) - self.con.length ** 2
+
+    def get_grad(self):
+        grad = np.zeros((3, int(len(self.point) / 3)))
+        grad.reshape(int(len(self.point) / 3), 3)
+        point = self.point.reshape(int(len(self.point) / 3), 3)
+
+        vec1 = point[self.con.n_atoms[0].number_in_mol - 1]
+        vec2 = point[self.con.n_atoms[1].number_in_mol - 1]
+
+        grad[self.con.n_atoms[0].number_in_mol - 1] = 2 * (vec1 - vec2)
+        grad[self.con.n_atoms[1].number_in_mol - 1] = 2 * (vec2 - vec1)
+
+        return grad.reshape(len(self.point), 1)
+
+    def get_hess(self):
+        hess = np.zeros((len(self.point), len(self.point)))
+        hess[3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol,
+        3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol] = -2
+        hess[3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol,
+        3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol] = -2
+        hess[3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol,
+        3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol] = -2
+        hess[3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol,
+        3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol] = -2
+        for i in range(3):
+            hess[3 * self.con.n_atoms[0].number_in_mol - (3 - i), 3 * self.con.n_atoms[0].number_in_mol - (3 - i)] = 2
+            hess[3 * self.con.n_atoms[1].number_in_mol - (3 - i), 3 * self.con.n_atoms[1].number_in_mol - (3 - i)] = 2
+        return hess
+
+
+class A_func:
+    def __init__(self, const, point):
+        self.point = point
+        self.con = const
+
+    def get_value(self):
+        vec1 = self.point[3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol]
+        vec2 = self.point[3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol]
+        vec3 = self.point[3 * self.con.n_atoms[2].number_in_mol - 3: 3 * self.con.n_atoms[2].number_in_mol]
+
+        tmp1 = vec1 - vec2
+        tmp2 = vec3 - vec2
+        return tmp1.dot(tmp2) / (np.linalg.norm(tmp1) * np.linalg.norm(tmp2))
+
+    def get_grad(self):
+        return 1
+
+    def get_hess(self):
+        return 1
+
+
+class D_func:
+    def __init__(self, const, point):
+        self.point = point
+        self.con = const
+
+    def get_value(self):
+        vec1 = self.point[3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol]
+        vec2 = self.point[3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol]
+        vec3 = self.point[3 * self.con.n_atoms[2].number_in_mol - 3: 3 * self.con.n_atoms[2].number_in_mol]
+        vec4 = self.point[3 * self.con.n_atoms[3].number_in_mol - 3: 3 * self.con.n_atoms[3].number_in_mol]
+        tmp1 = vec1 - vec2
+        tmp2 = vec3 - vec2
+        tmp3 = vec3 - vec4
+
+        angle = np.arctan2(np.cross(np.cross(tmp1, tmp2), np.cross(tmp2, tmp3)).dot(tmp2 / np.linalg.norm(tmp2)),
+                           np.cross(tmp1, tmp2).dot(np.cross(tmp2, tmp3)))
+
+        return angle
+
+    def get_grad(self):
+        return 1
+
+    def get_hess(self):
+        return 1
 
 class constrain:
     constr_type = ""
@@ -229,3 +318,24 @@ class constrains:
                 self.CONSTR_LIST.append(parcer_D(it, self.atoms))
 
             file.close()
+
+    def get_constr_grad(self, point):
+        list_grad = []
+        nInter = len(point)
+        nLambda = len(self.CONSTR_LIST)
+        matr_grad = np.matrix(np.zeros((nInter, nLambda)))
+
+        for i in self.CONSTR_LIST:
+            if i.constr_type == "B":
+                con = B_func(i, point)
+                list_grad.append(con.get_grad())
+            if i.constr_type == "A":
+                con = A_func(i, point)
+                list_grad.append(con.get_grad())
+            if i.constr_type == "D":
+                con = D_func(i, point)
+                list_grad.append(con.get_grad())
+
+        print(matr_grad[0, 0])
+
+        print(list_grad)
