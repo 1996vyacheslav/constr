@@ -49,7 +49,7 @@ print("----------START OPTIMISATION----------")
 utils.write_config(charge, start)
 
 if rfo_c.rfo_constr(Energy_Func=func, nInter=len(start), nLambda=len(constr.CONSTR_LIST),
-                    q_start=start, charge=charge, constrains=constr, use_beta=True, beta=1.5):
+                    q_start=start, charge=charge, constrains=constr, use_beta=True, beta=0.01):
     print("----------END OPTIMISATION----------")
 
 # class Func:
