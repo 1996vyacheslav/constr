@@ -450,7 +450,4 @@ def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_be
 
     # DEBUG INFO: check up execution time
     t_end = t.time() - start_time
-
-
-
-
+    return 1

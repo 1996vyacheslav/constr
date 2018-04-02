@@ -1,0 +1,9 @@
+#!/bin/bash
+#export scr=~/soft/gauss/scr
+#export GAUSS_SCRDIR=$scr/
+#mkdir -p $GAUSS_SCRDIR
+
+export g09root=~/
+
+. $g09root/g09/bsd/g09.profile
+$g09root/g09/g09 < $1 > $2
