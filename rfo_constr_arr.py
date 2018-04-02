@@ -342,7 +342,7 @@ def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_be
         for j in range(len(d2rdq2)):
             summa = summa + lam[0] * d2rdq2[j]
 
-        W = d2Edq2 + summa
+        W = d2Edq2 + summa  # ???????? + or -
 
         # Make series of BFGS update from start_point to the current point
         for j in range(len(step_history) - 1):
@@ -410,7 +410,7 @@ def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_be
                 delta_y = delta_y * step_rest
 
         else:
-            delta_x = get_rfo_step(grad, hess, 1)
+            delta_x = get_rfo_step(grad, hess, 1, nInter, nLambda)
 
             # Cut the step in case of big step because of bad derivatives
             norm_deltax = compute_norm(delta_x)
