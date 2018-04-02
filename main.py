@@ -1,22 +1,42 @@
 import read_constrains as cnstr_r
+import utils
+import Logger
+import sys
 import numpy as np
+import rfo_constr_arr as rfo_c
 
 
-def create_q(q):
-    q_vec = []
-    for i in q:
-        for j in i.pos:
-            q_vec.append(j)
-    return np.array(q_vec)
+class Func:
+    def __init__(self):
+        pass
 
+    def __call__(self, x):
+        x1, x2, x3, x4, x5, x6, x7, x8, x9 = x
+        return x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9
+
+    def grad(self, x):
+        x1, x2, x3, x4, x5, x6, x7, x8, x9 = x
+        return np.array([[1 + x1], [1 + x2], [1 + x3], [1 + x4],
+                         [1 + x5], [1 + x6], [1 + x7], [1 + x8], [1 + x9]])
+
+    def hess(self, x):
+        m = np.zeros((len(x), len(x)))
+        m[:, :] = [0]
+        return m
+
+
+sys.stdout = Logger.Logger("/home/rusanov-vs/PycharmProjects/constr/rfo_constr_arr_log.txt")
 
 start_config = cnstr_r.parser_xyz("/home/rusanov-vs/PycharmProjects/constr/in/struct.xyz")
+
 constr = cnstr_r.constrains("/home/rusanov-vs/PycharmProjects/constr/in/cnstr", start_config)
 
-print(constr.get_constr_grad(create_q(start_config)))
-# print(cnstr_r.A_func(constr.CONSTR_LIST[0], create_q_start(start_config)).get_grad())
-# print(cnstr_r.A_func(constr.CONSTR_LIST[0], create_q_start(start_config)).get_hess())
+start = utils.create_q(start_config)
+charge = utils.create_charge(start_config)
 
-a = np.array([[1, 0], [0, 1]])
-b = np.array([[1, 1]])
-print(np.dot(2, 1))
+# LOGING INFORMATION
+print("START OPTIMISATION")
+utils.write_config(charge, start)
+
+rfo_c.rfo_constr(Energy_Func=Func(), nInter=len(start), nLambda=len(constr.CONSTR_LIST),
+                 q_start=start, charge=charge, constrains=constr, use_beta=True, beta=1.5)

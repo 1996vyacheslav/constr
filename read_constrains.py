@@ -145,7 +145,7 @@ class B_func:
         vec1 = self.point[3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol]
         vec2 = self.point[3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol]
 
-        return vec1.dot(vec1) - vec2.dot(vec2) - self.con.length ** 2
+        return np.dot(vec1, vec1) - np.dot(vec2, vec2) - self.con.length ** 2
 
     def get_grad(self):
         grad = np.zeros((3, int(len(self.point) / 3)))
@@ -276,7 +276,6 @@ class constrain:
 
 
 class constrains:
-    COUNT_OF_CNSTR = 0
     CONSTR_LIST = []
     atoms = []
 
@@ -297,7 +296,6 @@ class constrains:
             for line in file:
                 list_lines.append(line)
 
-            self.COUNT_OF_CNSTR = int(string_ready_list(list_lines[0])[0])
 
             for line in list_lines:
                 line = line.strip(' ')
@@ -319,11 +317,31 @@ class constrains:
 
             file.close()
 
+    def get_constr_val(self, point):
+        list_val = []
+        nLambda = len(self.CONSTR_LIST)
+
+        for i in self.CONSTR_LIST:
+            if i.constr_type == "B":
+                con = B_func(i, point)
+                list_val.append(con.get_value())
+            if i.constr_type == "A":
+                con = A_func(i, point)
+                list_val.append(con.get_value())
+            if i.constr_type == "D":
+                con = D_func(i, point)
+                list_val.append(con.get_value())
+
+        vect = np.array(list_val)
+        vect = vect.reshape(nLambda, 1)
+
+        return vect
+
     def get_constr_grad(self, point):
         list_grad = []
         nInter = len(point)
         nLambda = len(self.CONSTR_LIST)
-        matr_grad = np.matrix(np.zeros((nInter, nLambda)))
+        matr_grad = np.zeros((nInter, nLambda))
 
         for i in self.CONSTR_LIST:
             if i.constr_type == "B":
@@ -336,6 +354,23 @@ class constrains:
                 con = D_func(i, point)
                 list_grad.append(con.get_grad())
 
-        print(matr_grad[0, 0])
+        for i in range(nLambda):
+            matr_grad[:, [i]] = list_grad[i]
 
-        print(list_grad)
+        return matr_grad
+
+    def get_constr_hess(self, point):
+        list_hess = []
+
+        for i in self.CONSTR_LIST:
+            if i.constr_type == "B":
+                con = B_func(i, point)
+                list_hess.append(con.get_hess())
+            if i.constr_type == "A":
+                con = A_func(i, point)
+                list_hess.append(con.get_hess())
+            if i.constr_type == "D":
+                con = D_func(i, point)
+                list_hess.append(con.get_hess())
+
+        return list_hess

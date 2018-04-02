@@ -10,103 +10,10 @@ ARTICLES:
     On the automatic restricted-step rational-function-optimization method (Emili Besalu, Josep Maria Bofill)
 """
 
-from math import *
-import os
 import numpy as np
-from matplotlib import pyplot as plt
+import utils
 import time as t
 from numpy.linalg import inv
-
-
-class Func:
-    def __init__(self):
-        pass
-
-    def __call__(self, x):
-        x, y = x
-        return (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2
-
-    def grad(self, x):
-        x, y = x[0, 0], x[1, 0]
-
-        dEdx = 2 * (1 - y ** 2) * exp(-x ** 2) * (x - x ** 3)
-        dEdy = (1 - 2 * x ** 2 * exp(-x ** 2)) * y
-        return np.array([[dEdx], [dEdy]])
-
-    def hess(self, x):
-        x, y = x[0, 0], x[1, 0]
-
-        xx = 2 * (1 - y ** 2) * exp(-x ** 2) * (2 * x ** 4 - 5 * x ** 2 + 1)
-        xy = 4 * y * exp(-x ** 2) * x * (x - 1) * (x + 1);
-        yy = 1 - 2 * x ** 2 * exp(-x ** 2)
-
-        return np.array([[xx, xy], [xy, yy]])
-
-
-class Func3:
-    def __init__(self):
-        self.inner = Func()
-
-    def __call__(self, x):
-        return self.inner(x[:2]) + self.inner(x[1:])
-
-    def grad(self, x):
-        grad = np.zeros(3, 1)
-        grad[:2, 0] = self.inner.grad(x[:2])
-        grad[1:, 0] = self.inner.grad(x[1:])
-
-        return grad
-
-    def hess(self, x):
-        hess = np.zeros(3, 3)
-        hess[:2, :2] = self.inner.hess(x[:2])
-        hess[1:, 1:] = self.inner.hess(x[1:])
-
-        return hess
-
-
-# def r(x):
-#     x, y = x
-#     return sqrt(x ** 2 + y ** 2) - 0.5
-#
-#
-# def get_drdq(x):
-#     x, y = x[0, 0], x[1, 0]
-#     x = x / sqrt(x ** 2 + y ** 2)
-#     y = y / sqrt(x ** 2 + y ** 2)
-#
-#     return np.matrix([[x], [y]])
-#
-#
-# def get_d2rdq2(x):
-#     x, y = x[0, 0], x[1, 0]
-#     xx = y ** 2 / sqrt(x ** 2 + y ** 2) ** 3
-#     xy = - x * y / sqrt(x ** 2 + y ** 2) ** 3
-#     yy = x ** 2 / sqrt(x ** 2 + y ** 2) ** 3
-#
-#     return np.matrix([[xx, xy], [xy, yy]])
-
-def r(x):
-    x, y = x
-    return np.array([(1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2 + 1 - x])
-
-
-def get_drdq(x):
-    x, y = x[0, 0], x[1, 0]
-
-    dEdx = (2 * (1 - y ** 2) * exp(-x ** 2) * (x - x ** 3)) - 1
-    dEdy = (1 - 2 * x ** 2 * exp(-x ** 2)) * y
-    return np.array([[dEdx], [dEdy]])
-
-
-def get_d2rdq2(x):
-    x, y = x[0, 0], x[1, 0]
-
-    xx = (2 * (1 - y ** 2) * exp(-x ** 2) * (2 * x ** 4 - 5 * x ** 2 + 1))
-    xy = (4 * y * exp(-x ** 2) * x * (x - 1) * (x + 1))
-    yy = -(1 - 2 * x ** 2 * exp(-x ** 2))
-
-    return np.array([[xx, xy], [xy, yy]]).transpose()
 
 
 '''Declaration and set up variables for RFO'''
@@ -133,22 +40,21 @@ def get_rfo_step(grad, hess, beta, nInter, nLambda):
     :param nLambda: count of constrains
     :return: RFO step
     """
-    print("M")
     m = np.block([[hess, grad], [grad.transpose(), 0]])
-    print(m)
-    print("m")
     z1 = np.zeros((1, nInter - nLambda))
     z2 = np.ones((1, 1))
     s = np.eye(nInter - nLambda, nInter - nLambda)
-    print("S")
-    s = np.block([[z2, z1.transpose()], [z1, beta * s]])
-    print(s)
-    print("s")
+    s = np.block([[z2, z1], [z1.transpose(), beta * s]])
     m = np.dot(inv(s), m)
 
     w, v = np.linalg.eigh(m)
 
     dx = v[:-1, 0] / v[-1, 0]
+
+    list_tmp = []
+    for i in dx:
+        list_tmp.append([i])
+    dx = np.array(list_tmp)
     return dx
 
 
@@ -163,7 +69,6 @@ def construct_t_matrix(drdq, nInter, nLambda):
     """
     T = np.zeros((nInter, nInter))
     drdq = drdq.transpose()
-
     # Fill rows of T_matrix with gradient of constrains
     T[:nLambda] = drdq
 
@@ -360,52 +265,15 @@ def bfgs_update_W(prev_W, delta_grad, delta_q):
     return W
 
 
-def plot(xs, ys, func):
-    """
-    Debug function, build plot of RFO steps on the model f(x, y) energy
-    :param xs: list of abscissas
-    :param ys: list of ordinates
-    :param func: model 2D potential
-    :return: plot
-
-    ..warning:: should to close plt.close() and clear field plt.clf() after every call
-
-    ..note:: for showing plot after the function need to usr plt.show()
-    """
-    plt.figure(figsize=(10, 10))
-
-    x = np.linspace(-2, 2, 100)
-    y = np.linspace(-2, 2, 100)
-    x_grid, y_grid = np.meshgrid(x, y)
-
-    z_E = np.zeros_like(x_grid)
-    for i, (row_x, row_y) in enumerate(zip(x_grid, y_grid)):
-        for j, (x, y) in enumerate(zip(row_x, row_y)):
-            z_E[i, j] = func([x, y])
-
-    z_r = np.zeros_like(x_grid)
-    for i, (row_x, row_y) in enumerate(zip(x_grid, y_grid)):
-        for j, (x, y) in enumerate(zip(row_x, row_y)):
-            z_r[i, j] = r([x, y])
-
-    # plt.figure(figsize=(50, 50))
-    plt.contour(x_grid, y_grid, z_E)
-    plt.contour(x_grid, y_grid, z_r, [0], colors='black')
-    plt.plot(xs, ys, c='r')
-
-
-# DEBUG INFO: collect statistics of steps of RFO before convergence, execution time, count of converges
-list_steps = []
-list_times = []
-list_conv = []
-
-
-def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1):
+def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_beta=True, beta=1.5, trust_radius=1):
     """
     This function find constrained local minimum of energy
     :param nInter: count of variables
     :param nLambda: count of constrains
     :param q_start: start geometry (start point on the potential energy surface)
+    :param constrains: object of class constrains with all constrains
+    :param Energy_Func: energy from Gaussian or other program
+    :param charge: contains list of charges
     :param use_beta: parameter to switch on / off usage of beta like step restriction multiplier
     and multiplier for S-matrix in RFO
     :param beta: step restriction multiplier and also and multiplier for S-matrix in RFO
@@ -430,13 +298,8 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
     # DEBUG INFO: check start time
     start_time = t.time()
 
-    # Count of constrain
-    nLambda = 1
-    # Count of degrees of freedom
-    nInter = 2
-
     # Add test energy function
-    E = Func()
+    E = Energy_Func
 
     # History of all previous points
     step_history = []
@@ -445,44 +308,27 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
     # History of all previous gradients of constrains
     drdq_history = []
 
-    # Add start point to the history
-    step_history.append(q_start)
-
-    # DEBUG INFO: coordinates of the path to build a plot
-    xs = []
-    ys = []
-
     # Initialization of internal parameters
     x_beta = 1.0
     y_beta = 1.0
     g_beta = 1.0
 
     # Maximum count of the steps
-    k_max = 1000
+    k_max = 10000
 
     # Get energy hessian at start point
     d2Edq2 = E.hess(q_start)
-    d2rdq2 = get_d2rdq2(q_start)
+    d2rdq2 = constrains.get_constr_val(q_start)
+
+    # Add start point to the history
+    step_history.append(q_start)
 
     # Main loop of the optimisation with constraint
     for i in range(k_max):
-        # DEBUG INFO: collect trip for plot it
-        xs.append(step_history[i][0, 0])
-        ys.append(step_history[i][1, 0])
-
-        # plot(xs, ys, E)
-        # if not os.path.exists("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1)):
-        #     os.makedirs("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1))
-        #
-        # plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1) + "/" + "step"
-        #  + str(i) + ".png",
-        #             format='png', dpi=100)
-        # plt.clf()
-        # plt.close()
-
         # Compute gradients of energy and constrains
         dEdq = E.grad(step_history[i])
-        drdq = get_drdq(step_history[i])
+        drdq = constrains.get_constr_grad(step_history[i])
+
 
         # Add dEdq and drdq to the history
         dEdq_history.append(dEdq)
@@ -492,7 +338,11 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
         lam = construct_lambda(drdq, dEdq)
 
         # Compute W at start_point with new current lambdas
-        W = d2Edq2 + lam[0, 0] * d2rdq2
+        summa = 0
+        for j in range(len(d2rdq2)):
+            summa = summa + lam[0, 0] * d2rdq2[j]
+
+        W = d2Edq2 + summa
 
         # Make series of BFGS update from start_point to the current point
         for j in range(len(step_history) - 1):
@@ -506,7 +356,7 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
         T_ti = construct_T_ti(T, nInter, nLambda)
 
         # Calculate step in T_b subspace
-        delta_y = construct_dy(drdq, T_b, r(step_history[i]))
+        delta_y = construct_dy(drdq, T_b, constrains.get_constr_val(step_history[i]))
 
         # Compute norm of step in constrained space
         norm_deltay = compute_norm(delta_y)
@@ -574,53 +424,33 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
                 delta_y = delta_y * trust_radius
 
         # Calculate step from rfo optimisation
-        step = T_b * delta_y + T_ti * delta_x
+        step = np.dot(T_b, delta_y) + np.dot(T_ti, delta_x)
+
+        tmp = []
+        for k in step:
+            tmp.append(float(k))
+        step = np.array(tmp)
+
         # Construct coordinates of new point int the energy coordinates
         new_point = step_history[i] + step
+
+        # LOGING INFORMATION
+        print("STEP NUMBER = {}\nGRADIENT_NORM = {}".format(i + 1, norm_red_grad))
+        utils.write_config(charge, new_point)
+
         # Add new point to history of points
         step_history.append(new_point)
 
         # primitive stop-criteria
-        if norm_red_grad < 10 ** (-6):
-            # DEBUG INFO: collect count of steps and information about convergence
-            list_steps.append(i)
-            list_conv.append(1)
+        if norm_red_grad < 10 ** (-8):
+            # LOGING INFORMATION
+            print("END OF OPTIMISATION")
+            utils.write_config(charge, step_history[i])
             break
 
     # DEBUG INFO: check up execution time
     t_end = t.time() - start_time
-    list_times.append(t_end)
-
-    # # DEBUG INFO: show trip in console
-    # for stp in step_history:
-    #     print('x = {}, y = {}'.format(stp[0, 0], stp[1, 0]))
-
-    # DEBUG INFO: show plot of the trip on the potential
-    plot(xs, ys, E)
-    plt.savefig(
-        "/home/rusanov-vs/PycharmProjects/constr/pic/" + str((len(list_steps))) + ".png",
-        format='png', dpi=100)
-    plt.clf()
-    plt.close()
 
 
-# DEBUG INFO: start point debug
-q_start = np.array([[1.], [1.]])
-for i in range(1):
-    rfo_constr(2, 1, q_start, beta=1)
-    print("Done,", i)
 
-sum = 0
-for i in range(len(list_steps)):
-    sum = sum + list_steps[i]
-print('AVERAGE STEP = {}, MEDIAN STEP  = {}'.format(sum / len(list_steps), list_steps[int(len(list_steps) / 2)]))
 
-sum = 0
-for i in range(len(list_times)):
-    sum = sum + list_times[i]
-print('AVERAGE TIME = {}, MEDIAN TIME = {}'.format(sum / len(list_times), list_times[int(len(list_times) / 2)]))
-
-sum = 0
-for i in range(len(list_conv)):
-    sum = sum + list_conv[i]
-print('COUNT OF CONV = {}'.format(sum))

@@ -11,7 +11,8 @@ ARTICLES:
 """
 
 from math import *
-import os
+import sys
+import Logger
 import numpy as np
 from matplotlib import pyplot as plt
 import time as t
@@ -83,26 +84,37 @@ class Func3:
 #     yy = x ** 2 / sqrt(x ** 2 + y ** 2) ** 3
 #
 #     return np.matrix([[xx, xy], [xy, yy]])
-
 def r(x):
-    x, y = x
-    return (1 - y ** 2) * x ** 2 * exp(-x ** 2) + .5 * y ** 2 + 1 - x
+    return np.linalg.norm(x) - .3
+
 
 def get_drdq(x):
-    x, y = x[0, 0], x[1, 0]
+    return 2 * x
 
-    dEdx = (2 * (1 - y ** 2) * exp(-x ** 2) * (x - x ** 3)) - 1
-    dEdy = (1 - 2 * x ** 2 * exp(-x ** 2)) * y
-    return np.matrix([[dEdx], [dEdy]])
 
 def get_d2rdq2(x):
-    x, y = x[0, 0], x[1, 0]
+    return 2.
 
-    xx = (2 * (1 - y ** 2) * exp(-x ** 2) * (2 * x ** 4 - 5 * x ** 2 + 1))
-    xy = (4 * y * exp(-x ** 2) * x * (x - 1) * (x + 1))
-    yy = -(1 - 2 * x ** 2 * exp(-x ** 2))
 
-    return np.matrix([[xx, xy], [xy, yy]])
+# def r(x):
+#     x, y = x
+#     return np.linalg.norm(x) - 0.3
+#
+# def get_drdq(x):
+#     x, y = x[0, 0], x[1, 0]
+#
+#     dEdx = (2 * (1 - y ** 2) * exp(-x ** 2) * (x - x ** 3)) - 1
+#     dEdy = (1 - 2 * x ** 2 * exp(-x ** 2)) * y
+#     return np.matrix([[dEdx], [dEdy]])
+#
+# def get_d2rdq2(x):
+#     x, y = x[0, 0], x[1, 0]
+#
+#     xx = (2 * (1 - y ** 2) * exp(-x ** 2) * (2 * x ** 4 - 5 * x ** 2 + 1))
+#     xy = (4 * y * exp(-x ** 2) * x * (x - 1) * (x + 1))
+#     yy = -(1 - 2 * x ** 2 * exp(-x ** 2))
+#
+#     return np.matrix([[xx, xy], [xy, yy]])
 
 
 '''Declaration and set up variables for RFO'''
@@ -129,22 +141,17 @@ def get_rfo_step(grad, hess, beta, nInter, nLambda):
     :param nLambda: count of constrains
     :return: RFO step
     """
-    print("M")
     m = np.matrix(np.block([[hess, grad], [grad.getT(), 0]]))
-    print(m)
-    print("m")
     z1 = np.matrix(np.zeros((1, nInter - nLambda)))
     z2 = np.matrix(np.ones((1, 1)))
     s = np.matrix(np.eye(nInter - nLambda, nInter - nLambda))
-    print("S")
     s = np.bmat([[z2, z1.getT()], [z1, beta * s]])
-    print(s)
-    print("s")
     m = s.getI() * m
 
     w, v = np.linalg.eigh(m)
 
     dx = v[:-1, 0] / v[-1, 0]
+    print(dx)
     return dx
 
 
@@ -302,7 +309,7 @@ def construct_lambda(drdq, dEdq):
     :return rLambda: vector of Lagrange multipliers
     """
     tmp = drdq.getT() * drdq
-    tmp.getI()
+    tmp = tmp.getI()
     tmp = tmp * drdq.getT()
     rLambda = tmp * dEdq
 
@@ -385,7 +392,7 @@ def plot(xs, ys, func):
             z_r[i, j] = r([x, y])
 
     # plt.figure(figsize=(50, 50))
-    plt.contour(x_grid, y_grid, z_E)
+    plt.contour(x_grid, y_grid, z_E, 200)
     plt.contour(x_grid, y_grid, z_r, [0], colors='black')
     plt.plot(xs, ys, c='r')
 
@@ -444,6 +451,7 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
     # Add start point to the history
     step_history.append(q_start)
 
+
     # DEBUG INFO: coordinates of the path to build a plot
     xs = []
     ys = []
@@ -465,16 +473,6 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
         # DEBUG INFO: collect trip for plot it
         xs.append(step_history[i][0, 0])
         ys.append(step_history[i][1, 0])
-
-        # plot(xs, ys, E)
-        # if not os.path.exists("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1)):
-        #     os.makedirs("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1))
-        #
-        # plt.savefig("/home/rusanov-vs/PycharmProjects/constr/pic/pic_path" + str(len(list_steps) + 1) + "/" + "step"
-        #  + str(i) + ".png",
-        #             format='png', dpi=100)
-        # plt.clf()
-        # plt.close()
 
         # Compute gradients of energy and constrains
         dEdq = E.grad(step_history[i])
@@ -571,13 +569,14 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
 
         # Calculate step from rfo optimisation
         step = T_b * delta_y + T_ti * delta_x
+
         # Construct coordinates of new point int the energy coordinates
         new_point = step_history[i] + step
         # Add new point to history of points
         step_history.append(new_point)
 
         # primitive stop-criteria
-        if norm_red_grad < 10 ** (-6):
+        if norm_red_grad < 10 ** (-8):
             # DEBUG INFO: collect count of steps and information about convergence
             list_steps.append(i)
             list_conv.append(1)
@@ -600,11 +599,12 @@ def rfo_constr(nInter, nLambda, q_start, use_beta=True, beta=1.5, trust_radius=1
     plt.close()
 
 
+sys.stdout = Logger.Logger("/home/rusanov-vs/PycharmProjects/constr/rfo_constr_log.txt")
+
 # DEBUG INFO: start point debug
-q_start = np.matrix([[1.], [1.]])
+q_start = np.matrix([[0.000001], [0.000001]])
 for i in range(1):
     rfo_constr(2, 1, q_start, beta=1)
-    print("Done,", i)
 
 sum = 0
 for i in range(len(list_steps)):
