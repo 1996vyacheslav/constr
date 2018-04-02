@@ -18,7 +18,6 @@ def create_charge(q):
 
 def write_config(charge, vect):
     n = len(charge)
-    print(n)
 
     string = ""
     for i in range(n):

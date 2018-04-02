@@ -340,7 +340,7 @@ def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_be
         # Compute W at start_point with new current lambdas
         summa = 0
         for j in range(len(d2rdq2)):
-            summa = summa + lam[j] * d2rdq2[j]
+            summa = summa + lam[0] * d2rdq2[j]
 
         W = d2Edq2 + summa
 
@@ -435,7 +435,8 @@ def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_be
         new_point = step_history[i] + step
 
         # LOGING INFORMATION
-        print("STEP NUMBER = {}\nGRADIENT_NORM = {}".format(i + 1, norm_red_grad))
+        print(len(charge))
+        print("STEP NUMBER = {} GRADIENT_NORM = {}".format(i + 1, norm_red_grad))
         utils.write_config(charge, new_point)
 
         # Add new point to history of points

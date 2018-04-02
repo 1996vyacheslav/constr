@@ -27,7 +27,7 @@ class energy_gauss:
         return two_in_one[2]
 
 
-sys.stdout = Logger.Logger("/home/rusanov-vs/PycharmProjects/constr/rfo_constr_arr_log.txt")
+sys.stdout = Logger.Logger("/home/rusanov-vs/PycharmProjects/constr/rfo_constr_arr_log.xyz")
 
 start_config = cnstr_r.parser_xyz("/home/rusanov-vs/PycharmProjects/constr/in/struct.xyz")
 
@@ -46,10 +46,12 @@ func = energy_gauss(gaussian_wrapper.GaussianWrapper(n_proc=3, mem=1000), charge
 
 # LOGGING INFORMATION
 print("----------START OPTIMISATION----------")
+print(len(charge))
+print("INIT COORDINATE")
 utils.write_config(charge, start)
 
 if rfo_c.rfo_constr(Energy_Func=func, nInter=len(start), nLambda=len(constr.CONSTR_LIST),
-                    q_start=start, charge=charge, constrains=constr, use_beta=True, beta=0.01):
+                    q_start=start, charge=charge, constrains=constr, use_beta=True, beta=0.1):
     print("----------END OPTIMISATION----------")
 
 # class Func:
