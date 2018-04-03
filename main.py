@@ -42,7 +42,7 @@ for i in constr.CONSTR_LIST:
 start = utils.create_q(start_config)
 charge = utils.create_charge(start_config)
 
-func = energy_gauss(gaussian_wrapper.GaussianWrapper(n_proc=3, mem=1000), charge)
+func = energy_gauss(gaussian_wrapper.GaussianWrapper(n_proc=4, mem=1000), charge)
 
 # LOGGING INFORMATION
 print("----------START OPTIMISATION----------")
@@ -51,7 +51,7 @@ print("INIT COORDINATE")
 utils.write_config(charge, start)
 
 if rfo_c.rfo_constr(Energy_Func=func, nInter=len(start), nLambda=len(constr.CONSTR_LIST),
-                    q_start=start, charge=charge, constrains=constr, use_beta=False, trust_radius=0.01):
+                    q_start=start, charge=charge, constrains=constr, use_beta=True, beta=0.1, trust_radius=0.1):
     print("----------END OPTIMISATION----------")
 
 # class Func:

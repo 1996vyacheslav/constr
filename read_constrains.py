@@ -145,11 +145,11 @@ class B_func:
         vec1 = self.point[3 * self.con.n_atoms[0].number_in_mol - 3: 3 * self.con.n_atoms[0].number_in_mol]
         vec2 = self.point[3 * self.con.n_atoms[1].number_in_mol - 3: 3 * self.con.n_atoms[1].number_in_mol]
 
-        return np.dot(vec1, vec1) - np.dot(vec2, vec2) - self.con.length ** 2
+        return (vec1 - vec2).dot(vec1 - vec2) - self.con.length ** 2
 
     def get_grad(self):
         grad = np.zeros((3, int(len(self.point) / 3)))
-        grad.reshape(int(len(self.point) / 3), 3)
+        grad = grad.reshape(int(len(self.point) / 3), 3)
         point = self.point.reshape(int(len(self.point) / 3), 3)
 
         vec1 = point[self.con.n_atoms[0].number_in_mol - 1]

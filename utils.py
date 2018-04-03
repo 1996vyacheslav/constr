@@ -22,6 +22,6 @@ def write_config(charge, vect):
     string = ""
     for i in range(n):
         string = string + str(charge[i]) + "  "
-        string = string + str(vect[n * i]) + "   " + str(vect[n * i + 1]) + "   " + str(vect[n * i + 2]) + "\n"
+        string = string + str(vect[3 * i]) + "   " + str(vect[3 * i + 1]) + "   " + str(vect[3 * i + 2]) + "\n"
 
     print(string)

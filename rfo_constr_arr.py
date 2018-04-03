@@ -340,7 +340,7 @@ def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_be
         # Compute W at start_point with new current lambdas
         summa = 0
         for j in range(len(d2rdq2)):
-            summa = summa + lam[0] * d2rdq2[j]
+            summa = summa + lam[j] * d2rdq2[j]
 
         W = d2Edq2 + summa  # ???????? + or -
 
@@ -443,8 +443,9 @@ def rfo_constr(nInter, nLambda, q_start, constrains, Energy_Func, charge, use_be
         step_history.append(new_point)
 
         # primitive stop-criteria
-        if norm_red_grad < 10 ** (-8):
+        if norm_red_grad < 10 ** (-6):
             # LOGING INFORMATION
+            print(len(charge))
             print("END OF OPTIMISATION")
             utils.write_config(charge, step_history[i])
             break
